@@ -1,0 +1,74 @@
+buildscript {
+  ext.getExtOrDefault = { name, fallback ->
+    rootProject.ext.has(name) ? rootProject.ext.get(name) : fallback
+  }
+
+  repositories {
+    google()
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.6.0"
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getExtOrDefault('kotlinVersion', '2.0.21')}"
+  }
+}
+
+def isNewArchitectureEnabled() {
+  return rootProject.hasProperty("newArchEnabled") && rootProject.getProperty("newArchEnabled") == "true"
+}
+
+if (!isNewArchitectureEnabled()) {
+  throw new GradleException(
+    "linktrail-react-native is a TurboModule and requires the React Native New Architecture. " +
+    "Enable it with newArchEnabled=true in gradle.properties (the default since React Native 0.76)."
+  )
+}
+
+apply plugin: "com.android.library"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+android {
+  namespace "io.linktrail.reactnative"
+
+  compileSdkVersion getExtOrDefault("compileSdkVersion", 35)
+
+  defaultConfig {
+    // The LinkTrail Android SDK requires API 26+.
+    minSdkVersion getExtOrDefault("minSdkVersion", 26)
+    targetSdkVersion getExtOrDefault("targetSdkVersion", 35)
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+
+  kotlinOptions {
+    jvmTarget = "17"
+  }
+
+  sourceSets {
+    main {
+      java.srcDirs += ["generated/java", "generated/jni"]
+    }
+  }
+}
+
+react {
+  jsRootDir = file("../src/")
+  libraryName = "LinkTrailSpec"
+  codegenJavaPackageName = "io.linktrail.reactnative"
+}
+
+repositories {
+  google()
+  mavenCentral() // the LinkTrail SDK (io.linktrail:sdk) is published to Maven Central
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+  implementation "io.linktrail:sdk:0.0.3"
+  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
+}

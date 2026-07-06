@@ -1,0 +1,91 @@
+{
+  "name": "linktrail-react-native",
+  "version": "0.1.0",
+  "description": "React Native SDK for LinkTrail — mobile attribution and deferred deep linking. A New Architecture TurboModule wrapping the native LinkTrail iOS and Android SDKs.",
+  "main": "./lib/module/index.js",
+  "types": "./lib/typescript/src/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "android",
+    "ios",
+    "*.podspec",
+    "!android/build",
+    "!ios/build",
+    "!**/.*"
+  ],
+  "scripts": {
+    "typecheck": "tsc",
+    "clean": "del-cli lib",
+    "prepare": "bob build"
+  },
+  "keywords": [
+    "react-native",
+    "linktrail",
+    "attribution",
+    "deferred-deep-linking",
+    "deep-linking",
+    "turbomodule",
+    "ios",
+    "android"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/linktrail-io/react-native.git"
+  },
+  "author": "LinkTrail",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/linktrail-io/react-native/issues"
+  },
+  "homepage": "https://github.com/linktrail-io/react-native#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "del-cli": "^6.0.0",
+    "react": "19.1.0",
+    "react-native": "^0.80.0",
+    "react-native-builder-bob": "^0.40.6",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "codegenConfig": {
+    "name": "LinkTrailSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "io.linktrail.reactnative"
+    },
+    "ios": {
+      "modulesProvider": {
+        "LinkTrail": "LinkTrailModule"
+      }
+    }
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      "typescript"
+    ]
+  }
+}
