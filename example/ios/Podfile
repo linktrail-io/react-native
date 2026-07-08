@@ -1,0 +1,53 @@
+# Resolve react_native_pods.rb with node to allow for hoisting
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "react-native/scripts/react_native_pods.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+platform :ios, min_ios_version_supported
+prepare_react_native_project!
+
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+end
+
+target 'KickFlip' do
+  config = use_native_modules!
+
+  # LinkTrailSDK is a CocoaPods-trunk dependency of linktrail-react-native, so it
+  # resolves automatically — no explicit pod line needed.
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  post_install do |installer|
+    # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false,
+      # :ccache_enabled => true
+    )
+
+    # Xcode 26's clang rejects fmt's consteval format-string checks (an upstream
+    # React Native / fmt issue, unrelated to LinkTrail). fmt's base.h always
+    # (re)derives FMT_USE_CONSTEVAL from compiler detection, so a preprocessor
+    # define can't override it — force the detection to the "off" branch instead.
+    fmt_base = File.join(__dir__, 'Pods', 'fmt', 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_base)
+      contents = File.read(fmt_base)
+      needle = '#if !defined(__cpp_lib_is_constant_evaluated)'
+      forced = '#if 1 // LinkTrail example: force FMT_USE_CONSTEVAL 0 (Xcode 26 clang)'
+      if contents.include?(needle) && !contents.include?(forced)
+        File.chmod(0644, fmt_base)
+        File.write(fmt_base, contents.sub(needle, "#{forced}\n#elif !defined(__cpp_lib_is_constant_evaluated)"))
+      end
+    end
+  end
+end
