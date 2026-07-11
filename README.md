@@ -1,10 +1,10 @@
 # LinkTrail React Native SDK
 
-Mobile attribution and deferred deep linking for React Native. A New Architecture **TurboModule**
-that wraps the native [LinkTrail iOS](https://github.com/linktrail-io/ios-sdk) and
-[Android](https://github.com/linktrail-io/android-sdk) SDKs — the API type is `LinkTrail`.
+Mobile **attribution** and **deferred deep linking** for React Native. A New Architecture
+**TurboModule** that wraps the native [LinkTrail iOS](https://github.com/linktrail-io/ios-sdk) and
+[Android](https://github.com/linktrail-io/android-sdk) SDKs — the entry point is `LinkTrail`.
 
-Requires React Native **0.76+** (New Architecture, the default), iOS **15.1+**, Android **minSdk 26+**.
+- **Package:** `linktrail-react-native` (npm) · **React Native:** 0.76+ (New Architecture) · **iOS:** 15.1+ · **Android:** minSdk 26
 
 ## Install
 
@@ -77,16 +77,16 @@ Universal Link (iOS Associated Domains: `applinks:kick.linktrail.io`) and an App
 ## Example app
 
 [`example/`](example/) is **KickFlip**, a storefront that shows deferred deep linking end to end,
-consuming this package the same way your app would:
+consuming this package the same way your app would. A link button fires the four scenarios
+(home · category · product · product + voucher):
 
 ```sh
 cd example && npm install && npm run ios   # or: npm run android
 ```
 
-Set your `lt_live_…` key in [`src/attribution.ts`](example/src/attribution.ts), then tap the 🔗
-button to fire the four scenarios (home · category · product · product+voucher). The simulator
-works without a key.
+Set your `lt_live_…` key in [`src/attribution.ts`](example/src/attribution.ts); without one the
+simulator's links route locally. See [example/README.md](example/README.md).
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).
