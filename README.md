@@ -74,6 +74,12 @@ Universal Link (iOS Associated Domains: `applinks:kick.linktrail.io`) and an App
 `intent-filter` (Android), plus any custom scheme. LinkTrail infra hosts the
 `apple-app-site-association` / `assetlinks.json` files for your link domains.
 
+**List every link host in `linkDomains`.** When `linkDomains` is non-empty, the SDK routes
+re-engagement opens (app already installed) *only* for those hosts — a link on an unlisted host
+opens the app but never navigates. Deferred (install-time) links skip this check and route
+regardless, so a missing host can look fine on a fresh install yet fail once the app is installed.
+Leave `linkDomains` empty (the default) to handle every parseable link.
+
 ## Example app
 
 [`example/`](example/) is **KickFlip**, a storefront that shows deferred deep linking end to end,
