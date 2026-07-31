@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  library:
+    name: Lint · Typecheck · Build · Codegen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build package (react-native-builder-bob)
+        run: npm run prepare
+
+      - name: Validate native codegen spec
+        run: node node_modules/react-native/scripts/generate-codegen-artifacts.js -p . -o "${RUNNER_TEMP}/codegen" -t all
+
+  example-android:
+    name: Example · JS + Android build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install library dependencies
+        run: npm ci
+
+      - name: Install example dependencies
+        working-directory: example
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck example
+        working-directory: example
+        run: npx tsc --noEmit
+
+      - name: Bundle JS (Android + iOS)
+        working-directory: example
+        run: |
+          npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output "${RUNNER_TEMP}/android.bundle" --assets-dest "${RUNNER_TEMP}/android-assets"
+          npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output "${RUNNER_TEMP}/ios.bundle" --assets-dest "${RUNNER_TEMP}/ios-assets"
+
+      - name: Build debug APK
+        working-directory: example/android
+        run: ./gradlew :app:assembleDebug --no-daemon

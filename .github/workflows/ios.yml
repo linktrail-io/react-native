@@ -1,0 +1,60 @@
+name: iOS build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ios:
+    name: Build example (iOS simulator)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up Ruby + CocoaPods (bundler)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: example
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install library dependencies
+        run: npm ci
+
+      - name: Install example dependencies
+        working-directory: example
+        run: npm install --no-audit --no-fund
+
+      - name: Pod install (retries — CocoaPods CDN can be flaky)
+        working-directory: example/ios
+        env:
+          LANG: en_US.UTF-8
+          LC_ALL: en_US.UTF-8
+        run: |
+          for i in 1 2 3; do
+            bundle exec pod install --repo-update && break
+            echo "pod install attempt $i failed; retrying…"
+            sleep 5
+          done
+
+      - name: Build (Debug, iOS simulator)
+        working-directory: example/ios
+        run: |
+          xcodebuild \
+            -workspace KickFlip.xcworkspace \
+            -scheme KickFlip \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            -quiet \
+            build
