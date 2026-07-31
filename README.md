@@ -52,11 +52,7 @@ await LinkTrail.trackEvent('purchase', { value: 59.99, currency: 'USD' });
 // Cached results:
 const attribution = await LinkTrail.getLastAttribution();
 const lastLink = await LinkTrail.getLastDeepLink();
-
-// Consent-gated install (defer configure's auto-track, then call manually):
-await LinkTrail.configure('lt_live_…', { autoTrackInstall: false });
-await LinkTrail.trackInstall();
-
+ 
 // iOS ATT / SKAdNetwork (no-ops on Android):
 await LinkTrail.requestTrackingAuthorization();
 LinkTrail.registerForSKAdAttribution();
@@ -64,8 +60,81 @@ LinkTrail.updateConversionValue(42, 'medium');
 ```
 
 `configure` also takes `{ logEnabled, logLevel, requestTimeoutMillis, retryPolicy, linkDomains,
-autoTrackInstall, autoHandleLinks }`. Set `autoHandleLinks: false` to forward URLs yourself via
-`LinkTrail.handleDeepLink(url)`.
+autoTrackInstall, requireConsent, clickTokenSource, autoHandleLinks }`. Set `autoHandleLinks: false`
+to forward URLs yourself via `LinkTrail.handleDeepLink(url)`.
+
+### Consent gating
+
+`requireConsent` (default `true`) gates attribution/tracking behind the user's decision —
+**deny-by-default** for GDPR / ePrivacy. While consent is unset or denied the SDK holds the install
+and drops events, but **deep links still route** (`onLink` fires) so the user reaches their
+destination. The SDK exposes **no consent getter** — your app is the source of truth: persist the
+choice and replay it with `setConsent` on every launch after `configure`.
+
+```ts
+await LinkTrail.configure('lt_live_…', { requireConsent: true });
+
+// After your consent UI resolves (persist the choice yourself, e.g. AsyncStorage):
+LinkTrail.setConsent(true);   // releases the held install + flushes queued events
+LinkTrail.setConsent(false);  // stops sending + drops the queue
+
+// On the next launch, replay the stored decision right after configure:
+LinkTrail.setConsent(storedGranted);
+```
+
+Set `requireConsent: false` to attribute at init without a consent step. See the example app's
+[`src/consent.ts`](example/src/consent.ts) for the persist-and-replay pattern.
+
+### Deferred attribution & the paste button (iOS)
+
+On iOS, deferred attribution recovers a **click token** the tapped link left on the clipboard.
+`clickTokenSource` (in `configure`) picks how it's read:
+
+- **`'automatic'`** — the SDK reads the clipboard itself at install. Needs no UI, but iOS shows the
+  system **"Allow Paste"** alert on first launch.
+- **`'pasteButton'`** (default) — the token is read **only** when the user taps
+  `<LinkTrailPasteButton/>` (Apple's `UIPasteControl`), with **no "Allow Paste" alert**. You render
+  the button and set **`autoTrackInstall: false`** so the install waits for the tap.
+
+Android uses the Play Install Referrer instead, so `clickTokenSource` is ignored there and
+`<LinkTrailPasteButton/>` renders nothing.
+
+```tsx
+import { LinkTrail, LinkTrailPasteButton } from 'linktrail-react-native';
+
+await LinkTrail.configure('lt_live_…', {
+  clickTokenSource: 'pasteButton',
+  autoTrackInstall: false, // required: the install fires when the button is tapped
+});
+
+// On your first-launch screen:
+<LinkTrailPasteButton
+  style={{ height: 46, alignSelf: 'stretch' }} // size via standard RN style
+  cornerStyle="fixed"
+  fillColor="#111"
+  foregroundColor="#FFFFFF"
+  onTokenPasted={(token) => {
+    // The SDK already fired the install with this token; onLink routes the
+    // recovered destination. Use this only for UI side effects.
+  }}
+/>
+```
+
+**`<LinkTrailPasteButton/>` props** (all optional; plus any `ViewProps` such as `style`):
+
+| Prop | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `onTokenPasted` | `(token: string) => void` | — | Fires after the SDK reads the token. |
+| `displayMode` | `'iconAndLabel' \| 'iconOnly' \| 'labelOnly'` | `'labelOnly'` | What the control shows. |
+| `cornerStyle` | `'dynamic' \| 'fixed' \| 'capsule' \| 'large' \| 'medium' \| 'small'` | `'capsule'` | Corner rounding. |
+| `foregroundColor` | `ColorValue` | system | Label/icon color. |
+| `fillColor` | `ColorValue` | system | Button background. |
+| `style` | `ViewStyle` | — | Size/layout (width, height, margins…). |
+
+Requires **iOS 16+**. The on-screen label is the system **"Paste"** string — Apple's
+`UIPasteControl` doesn't allow custom text, fonts, or borders; `displayMode`, `cornerStyle`, the two
+colors, and size are the full set of what's customizable. For manual control there's also
+`LinkTrail.trackInstallWithClickToken(token)` (iOS).
 
 ## Deep-link setup
 

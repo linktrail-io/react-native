@@ -12,6 +12,10 @@ import type {
 } from './types';
 
 export * from './types';
+export {
+  LinkTrailPasteButton,
+  type LinkTrailPasteButtonProps,
+} from './LinkTrailPasteButton';
 
 let linkingSubscription: LinkTrailSubscription | null = null;
 let initialUrlForwarded = false;
@@ -107,6 +111,21 @@ export const LinkTrail = {
   },
 
   /**
+   * iOS: sends the install using a deferred click token you read from the
+   * clipboard yourself (advanced — normally the `<LinkTrailPasteButton/>` does
+   * this for you). Android: equivalent to `trackInstall`.
+   */
+  trackInstallWithClickToken(
+    clickToken: string,
+    force = false
+  ): Promise<LinkTrailAttribution> {
+    return NativeLinkTrail.trackInstallWithClickToken(
+      clickToken,
+      force
+    ) as Promise<LinkTrailAttribution>;
+  },
+
+  /**
    * Records a custom post-install event (purchase, signup, conversion).
    * On failure the event is queued natively and retried; the returned promise
    * rejects so you can observe the first failure.
@@ -169,6 +188,19 @@ export const LinkTrail = {
     coarseValue?: LinkTrailCoarseConversionValue
   ): void {
     NativeLinkTrail.updateConversionValue(value, coarseValue);
+  },
+
+  /**
+   * Grants or revokes the user's tracking consent. Only meaningful when
+   * `configure` was called with `requireConsent: true` (the default).
+   *
+   * Granting releases the held install and flushes queued events; revoking
+   * stops sending and drops the queue. The SDK persists the decision, but
+   * exposes **no getter** — your app is the source of truth and must persist
+   * the choice and call `setConsent` again on every launch after `configure`.
+   */
+  setConsent(granted: boolean): void {
+    NativeLinkTrail.setConsent(granted);
   },
 
   /**

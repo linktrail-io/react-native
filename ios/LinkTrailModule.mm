@@ -77,6 +77,17 @@ RCT_EXPORT_MODULE(LinkTrail)
              reject:^(NSString *code, NSString *message) { reject(code, message, nil); }];
 }
 
+- (void)trackInstallWithClickToken:(NSString *)clickToken
+                             force:(BOOL)force
+                           resolve:(RCTPromiseResolveBlock)resolve
+                            reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl trackInstallWithClickToken:clickToken
+                              force:force
+                            resolve:resolve
+                             reject:^(NSString *code, NSString *message) { reject(code, message, nil); }];
+}
+
 - (void)handleDeepLink:(NSString *)url
                resolve:(RCTPromiseResolveBlock)resolve
                 reject:(RCTPromiseRejectBlock)reject
@@ -113,6 +124,11 @@ RCT_EXPORT_MODULE(LinkTrail)
 - (void)updateConversionValue:(double)value coarseValue:(NSString *)coarseValue
 {
   [_impl updateConversionValue:(NSInteger)llround(value) coarseValue:coarseValue];
+}
+
+- (void)setConsent:(BOOL)granted
+{
+  [_impl setConsent:granted];
 }
 
 - (void)resetForTesting

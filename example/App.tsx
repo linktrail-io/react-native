@@ -1,9 +1,11 @@
-import React, { useEffect, useReducer } from 'react';
+import React, { useCallback, useEffect, useReducer, useState } from 'react';
 import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { product } from './src/catalog';
 import { initialState, storeReducer } from './src/store';
-import { startAttribution } from './src/attribution';
+import { startAttribution, type Scenario } from './src/attribution';
+import { ConsentManager, type ConsentState } from './src/consent';
+import { ConsentPrompt } from './src/ConsentPrompt';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ProductScreen } from './src/screens/ProductScreen';
 import { SimulatorPanel } from './src/SimulatorPanel';
@@ -15,10 +17,46 @@ import { SimulatorPanel } from './src/SimulatorPanel';
  */
 export default function App() {
   const [state, dispatch] = useReducer(storeReducer, initialState);
+  // 'loading' until the persisted decision is read from storage — so the prompt
+  // doesn't flash on a re-engagement launch by an already-decided user.
+  const [consent, setConsent] = useState<ConsentState | 'loading'>('loading');
+  // Skip hides the prompt for this session without persisting a decision
+  // (consent stays undecided → deny-by-default; the prompt may return next launch).
+  const [promptSkipped, setPromptSkipped] = useState(false);
+  // Route a picked simulator scenario only AFTER the sheet has fully closed —
+  // mirrors the iOS example; navigating while the sheet dismisses doesn't stick.
+  const [pendingScenario, setPendingScenario] = useState<Scenario | null>(null);
   const insets = useSafeAreaInsets();
 
-  // Configure the SDK once and route incoming links into the store.
-  useEffect(() => startAttribution(dispatch), []);
+  // Configure the SDK once, route incoming links, and load the consent decision.
+  useEffect(() => startAttribution(dispatch, setConsent), []);
+
+  const grantConsent = useCallback(async () => {
+    await ConsentManager.set('granted');
+    setConsent('granted');
+  }, []);
+  const denyConsent = useCallback(async () => {
+    await ConsentManager.set('denied');
+    setConsent('denied');
+  }, []);
+  const resetConsent = useCallback(async () => {
+    await ConsentManager.reset();
+    setConsent('undecided');
+  }, []);
+
+  // Route the picked scenario once the simulator sheet has closed (+ a beat for
+  // the dismiss animation), so the navigation sticks — the iOS example's pattern.
+  useEffect(() => {
+    if (state.simulatorOpen || !pendingScenario) return;
+    const scenario = pendingScenario;
+    setPendingScenario(null);
+    const timer = setTimeout(
+      () =>
+        dispatch({ type: 'route-link', link: scenario.link, source: 'deferred' }),
+      350,
+    );
+    return () => clearTimeout(timer);
+  }, [state.simulatorOpen, pendingScenario]);
 
   // Auto-dismiss the "you arrived via a link" banner.
   useEffect(() => {
@@ -88,12 +126,29 @@ export default function App() {
 
       <SimulatorPanel
         visible={state.simulatorOpen}
-        onSelect={(scenario) =>
-          // Simulate a fresh install arriving via a deferred deep link — the
-          // same routing code (`route-link`) a real `onLink` delivery hits.
-          dispatch({ type: 'route-link', link: scenario.link, source: 'deferred' })
-        }
+        consent={consent === 'loading' ? 'undecided' : consent}
+        onSelect={(scenario) => {
+          // Record the pick and close the sheet; the effect above routes it once
+          // the sheet is gone (same as the native example's onDismiss).
+          setPendingScenario(scenario);
+          dispatch({ type: 'set-simulator', open: false });
+        }}
+        onGrantConsent={grantConsent}
+        onRevokeConsent={denyConsent}
+        onResetConsent={resetConsent}
         onClose={() => dispatch({ type: 'set-simulator', open: false })}
+      />
+
+      {/* First-launch consent gate — shown until the user decides or skips. */}
+      <ConsentPrompt
+        visible={consent === 'undecided' && !promptSkipped}
+        onDecide={(g) => (g ? grantConsent() : denyConsent())}
+        onSkip={() => setPromptSkipped(true)}
+        onTokenPasted={(token) =>
+          // The SDK already fired the install with this token; this is just a
+          // UI signal. onLink will route the recovered deferred link.
+          console.log('[KickFlip] click token pasted:', token)
+        }
       />
     </View>
   );

@@ -1,6 +1,6 @@
 {
   "name": "linktrail-react-native",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "React Native SDK for LinkTrail — mobile attribution and deferred deep linking. A New Architecture TurboModule wrapping the native LinkTrail iOS and Android SDKs.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -68,7 +68,7 @@
   },
   "codegenConfig": {
     "name": "LinkTrailSpec",
-    "type": "modules",
+    "type": "all",
     "jsSrcsDir": "src",
     "android": {
       "javaPackageName": "io.linktrail.reactnative"
@@ -76,6 +76,9 @@
     "ios": {
       "modulesProvider": {
         "LinkTrail": "LinkTrailModule"
+      },
+      "componentProvider": {
+        "LinkTrailPasteButton": "LinkTrailPasteButtonComponentView"
       }
     }
   },
