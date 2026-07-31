@@ -23,6 +23,12 @@ export interface Spec extends TurboModule {
   /** Sends the install event and resolves with the attribution result. */
   trackInstall(force: boolean): Promise<UnsafeObject>;
 
+  /**
+   * iOS: sends the install using a deferred click token read from the clipboard
+   * (via the paste button). Android: resolves the plain install result.
+   */
+  trackInstallWithClickToken(clickToken: string, force: boolean): Promise<UnsafeObject>;
+
   /** Records a custom post-install event; resolves with the server ack. */
   trackEvent(name: string, value?: number, currency?: string): Promise<UnsafeObject>;
 
@@ -46,6 +52,9 @@ export interface Spec extends TurboModule {
 
   /** iOS: updates the SKAdNetwork conversion value. Android: no-op. */
   updateConversionValue(value: number, coarseValue?: string): void;
+
+  /** Grants/revokes tracking consent (only meaningful with `requireConsent`). */
+  setConsent(granted: boolean): void;
 
   /** Clears the install flag, cached attribution, queued events, device id. */
   resetForTesting(): void;

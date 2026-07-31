@@ -57,6 +57,14 @@ the same object your `onLink` handler receives from a real install.
 The simulator fabricates the deferred link locally so you don't need a real click → install
 round-trip. In production these arrive from the SDK — no code changes in the app.
 
+## Consent gating
+
+Configured with `requireConsent: true`, so on first launch a **consent prompt** appears and nothing
+is tracked until you decide (deny-by-default). Deep links still route regardless. The 🔗 panel has a
+**Tracking consent** section (Grant / Revoke / Reset) to exercise `setConsent` repeatedly. The
+decision is persisted (AsyncStorage) and replayed to the SDK after `configure` on every launch —
+see [`src/consent.ts`](src/consent.ts), since the SDK has no consent getter.
+
 ## How it maps to the SDK
 
 The whole integration is one file — [`src/attribution.ts`](src/attribution.ts) — wired up once:

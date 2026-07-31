@@ -72,6 +72,19 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  override fun trackInstallWithClickToken(clickToken: String, force: Boolean, promise: Promise) {
+    // Android has no clipboard click token (attribution uses the Play Install
+    // Referrer), so the token is ignored — a plain install.
+    val sdk = requireSdk(promise) ?: return
+    scope.launch {
+      try {
+        promise.resolve(attributionToMap(sdk.trackInstallAsync(force)))
+      } catch (t: Throwable) {
+        promise.reject(errorCode(t), t.message, t)
+      }
+    }
+  }
+
   override fun trackEvent(name: String, value: Double?, currency: String?, promise: Promise) {
     val sdk = requireSdk(promise) ?: return
     scope.launch {
@@ -122,6 +135,12 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
 
   override fun updateConversionValue(value: Double, coarseValue: String?) = Unit
 
+  // ── Consent ──────────────────────────────────────────────────────────────
+
+  override fun setConsent(granted: Boolean) {
+    LinkTrail.shared?.setConsent(granted)
+  }
+
   // ── Testing ────────────────────────────────────────────────────────────────
 
   override fun resetForTesting() {
@@ -167,6 +186,8 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
       retryPolicy = retryPolicy,
       linkDomains = linkDomains,
       autoTrackInstall = map.booleanOrDefault("autoTrackInstall", defaults.autoTrackInstall),
+      requireConsent = map.booleanOrDefault("requireConsent", defaults.requireConsent),
+      // clickTokenSource is iOS-only (Android uses the Play Install Referrer) — ignored here.
     )
   }
 

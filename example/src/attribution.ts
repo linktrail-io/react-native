@@ -1,6 +1,7 @@
 import { Linking } from 'react-native';
 import LinkTrail, { type LinkTrailDeepLink } from 'linktrail-react-native';
 import type { StoreAction } from './store';
+import { ConsentManager, type ConsentState } from './consent';
 
 /**
  * Bridges the demo UI to the LinkTrail SDK: configures it, forwards real
@@ -76,25 +77,38 @@ function fabricate(
  */
 export function startAttribution(
   dispatch: (action: StoreAction) => void,
+  onConsentLoaded: (state: ConsentState) => void,
 ): () => void {
   const subscriptions: { remove(): void }[] = [];
 
   (async () => {
     try {
-      // autoTrackInstall → the install fires now, which also validates the key.
-      // linkDomains → only treat kick.linktrail.io links as ours.
+      // requireConsent → gate attribution/tracking behind the user's decision
+      //   (deny-by-default). Deep links still route without consent.
+      // linkDomains → the hosts whose links are ours. Re-engagement opens (app
+      // already installed) are only routed for these hosts; a host missing here
+      // opens the app but never navigates. (Deferred install links skip this
+      // check, which is why they work regardless.)
       await LinkTrail.configure(API_KEY, {
-        linkDomains: ['kick.linktrail.io'],
-        autoTrackInstall: true,
+        linkDomains: ['link.kynxlabs.com', 'kick.linktrail.io'],
+        requireConsent: true,
+        // 'pasteButton' → the deferred-attribution click token is read from the
+        // clipboard only when the user taps <LinkTrailPasteButton/> (no iOS
+        // "Allow Paste" alert). autoTrackInstall MUST be false so the install
+        // waits for that tap instead of firing token-less at launch (which would
+        // mark the install tracked and make the paste tap a no-op).
+        clickTokenSource: 'pasteButton',
+        autoTrackInstall: false,
       });
     } catch (error) {
       console.warn('LinkTrail configuration failed:', error);
       return;
     }
-    LinkTrail.registerForSKAdAttribution();
 
-    // The ONE piece of real wiring: route deferred (first launch) +
-    // re-engagement links into navigation state.
+    // Subscribe to onLink FIRST — before any further `await` — so a cold-start
+    // deep link (deferred first-launch, or a Universal Link that launched the
+    // app) delivered right after `configure` isn't missed while we read consent
+    // from storage. Routing works even without consent (only tracking is gated).
     subscriptions.push(
       LinkTrail.onLink((link, source) => {
         dispatch({ type: 'route-link', link, source });
@@ -113,6 +127,14 @@ export function startAttribution(
         }
       }),
     );
+
+    LinkTrail.registerForSKAdAttribution();
+
+    // The SDK has no consent getter — replay our persisted decision to it on
+    // every launch, then tell the UI so it can show the prompt if undecided.
+    const consent = await ConsentManager.load();
+    ConsentManager.syncToSDK(consent);
+    onConsentLoaded(consent);
   })();
 
   // Offline demo: kickflip:// URLs are not LinkTrail links (the SDK ignores
