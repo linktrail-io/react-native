@@ -24,6 +24,7 @@
   ],
   "scripts": {
     "typecheck": "tsc",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "clean": "del-cli lib",
     "prepare": "bob build"
   },
@@ -51,8 +52,11 @@
     "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
+    "@react-native/eslint-config": "0.80.3",
     "@types/react": "^19.0.0",
     "del-cli": "^6.0.0",
+    "eslint": "^8.57.1",
+    "prettier": "2.8.8",
     "react": "19.1.0",
     "react-native": "^0.80.0",
     "react-native-builder-bob": "^0.40.6",
