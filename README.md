@@ -52,7 +52,7 @@ await LinkTrail.trackEvent('purchase', { value: 59.99, currency: 'USD' });
 // Cached results:
 const attribution = await LinkTrail.getLastAttribution();
 const lastLink = await LinkTrail.getLastDeepLink();
-
+ 
 // iOS ATT / SKAdNetwork (no-ops on Android):
 await LinkTrail.requestTrackingAuthorization();
 LinkTrail.registerForSKAdAttribution();
