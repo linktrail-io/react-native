@@ -5,7 +5,6 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:kick.linktrail.io</string>
-		<string>applinks:link.kynxlabs.com</string>
 	</array>
 </dict>
 </plist>
