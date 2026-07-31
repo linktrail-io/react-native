@@ -19,6 +19,11 @@ target 'KickFlip' do
 
   # LinkTrailSDK is a CocoaPods-trunk dependency of linktrail-react-native, so it
   # resolves automatically — no explicit pod line needed.
+  # LINKTRAIL_SDK_LOCAL=1 → use the sibling 0.0.10 checkout (verification only;
+  # the trunk hasn't propagated 0.0.10 to this machine's CDN cache yet).
+  if ENV['LINKTRAIL_SDK_LOCAL']
+    pod 'LinkTrailSDK', :path => '../../../ios-sdk-public'
+  end
 
   use_react_native!(
     :path => config[:reactNativePath],

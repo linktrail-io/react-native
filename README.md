@@ -53,10 +53,6 @@ await LinkTrail.trackEvent('purchase', { value: 59.99, currency: 'USD' });
 const attribution = await LinkTrail.getLastAttribution();
 const lastLink = await LinkTrail.getLastDeepLink();
 
-// Consent-gated install (defer configure's auto-track, then call manually):
-await LinkTrail.configure('lt_live_…', { autoTrackInstall: false });
-await LinkTrail.trackInstall();
-
 // iOS ATT / SKAdNetwork (no-ops on Android):
 await LinkTrail.requestTrackingAuthorization();
 LinkTrail.registerForSKAdAttribution();
@@ -64,8 +60,30 @@ LinkTrail.updateConversionValue(42, 'medium');
 ```
 
 `configure` also takes `{ logEnabled, logLevel, requestTimeoutMillis, retryPolicy, linkDomains,
-autoTrackInstall, autoHandleLinks }`. Set `autoHandleLinks: false` to forward URLs yourself via
-`LinkTrail.handleDeepLink(url)`.
+autoTrackInstall, requireConsent, clickTokenSource, autoHandleLinks }`. Set `autoHandleLinks: false`
+to forward URLs yourself via `LinkTrail.handleDeepLink(url)`.
+
+### Consent gating
+
+`requireConsent` (default `true`) gates attribution/tracking behind the user's decision —
+**deny-by-default** for GDPR / ePrivacy. While consent is unset or denied the SDK holds the install
+and drops events, but **deep links still route** (`onLink` fires) so the user reaches their
+destination. The SDK exposes **no consent getter** — your app is the source of truth: persist the
+choice and replay it with `setConsent` on every launch after `configure`.
+
+```ts
+await LinkTrail.configure('lt_live_…', { requireConsent: true });
+
+// After your consent UI resolves (persist the choice yourself, e.g. AsyncStorage):
+LinkTrail.setConsent(true);   // releases the held install + flushes queued events
+LinkTrail.setConsent(false);  // stops sending + drops the queue
+
+// On the next launch, replay the stored decision right after configure:
+LinkTrail.setConsent(storedGranted);
+```
+
+Set `requireConsent: false` to attribute at init without a consent step. See the example app's
+[`src/consent.ts`](example/src/consent.ts) for the persist-and-replay pattern.
 
 ## Deep-link setup
 

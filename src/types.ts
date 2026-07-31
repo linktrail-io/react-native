@@ -90,6 +90,22 @@ export interface LinkTrailOptions {
    */
   autoTrackInstall?: boolean;
   /**
+   * Gate attribution/tracking behind user consent (GDPR / ePrivacy). Default
+   * `true` — **deny-by-default**. While consent is unset or denied the SDK holds
+   * the install and drops events, but deep links are still **routed** (`onLink`
+   * fires) so the user reaches their destination. Call `setConsent(true)` to
+   * release tracking. Set `false` to attribute at init without a consent step.
+   */
+  requireConsent?: boolean;
+  /**
+   * iOS only. How the SDK obtains the deferred-attribution click token from the
+   * clipboard. `'pasteButton'` (default) reads it only when the user taps an
+   * Apple paste control (no "Allow Paste" alert); `'automatic'` reads the
+   * clipboard at install (shows the system "Allow Paste" alert). Ignored on
+   * Android (which uses the Play Install Referrer).
+   */
+  clickTokenSource?: LinkTrailClickTokenSource;
+  /**
    * React Native-only convenience: when `true` (the default), the wrapper
    * listens to the RN `Linking` API and forwards incoming URLs (including the
    * initial launch URL) to the native SDK, so you don't have to call
@@ -97,6 +113,9 @@ export interface LinkTrailOptions {
    */
   autoHandleLinks?: boolean;
 }
+
+/** Where the iOS SDK reads the deferred-attribution click token from. */
+export type LinkTrailClickTokenSource = 'pasteButton' | 'automatic';
 
 /** SKAdNetwork 4.0+ coarse conversion value bucket (iOS only). */
 export type LinkTrailCoarseConversionValue = 'low' | 'medium' | 'high';

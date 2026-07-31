@@ -64,7 +64,7 @@
   },
   "codegenConfig": {
     "name": "LinkTrailSpec",
-    "type": "modules",
+    "type": "all",
     "jsSrcsDir": "src",
     "android": {
       "javaPackageName": "io.linktrail.reactnative"
@@ -72,6 +72,9 @@
     "ios": {
       "modulesProvider": {
         "LinkTrail": "LinkTrailModule"
+      },
+      "componentProvider": {
+        "LinkTrailPasteButton": "LinkTrailPasteButtonComponentView"
       }
     }
   },

@@ -65,6 +65,22 @@ public final class LinkTrailModuleImpl: NSObject {
     }
   }
 
+  @objc public func trackInstallWithClickToken(
+    _ clickToken: String,
+    force: Bool,
+    resolve: @escaping Resolve,
+    reject: @escaping Reject
+  ) {
+    guard let sdk = requireSDK(reject) else { return }
+    Task {
+      do {
+        resolve(Self.attributionDict(try await sdk.trackInstall(clickToken: clickToken, force: force)))
+      } catch {
+        reject(Self.errorCode(error), error.localizedDescription)
+      }
+    }
+  }
+
   @objc public func trackEvent(
     _ name: String,
     value: NSNumber?,
@@ -137,6 +153,12 @@ public final class LinkTrailModuleImpl: NSObject {
     sdk?.updateConversionValue(value, coarseValue: coarse)
   }
 
+  // MARK: - Consent
+
+  @objc public func setConsent(_ granted: Bool) {
+    sdk?.setConsent(granted)
+  }
+
   // MARK: - Testing
 
   @objc public func resetForTesting() {
@@ -173,8 +195,18 @@ public final class LinkTrailModuleImpl: NSObject {
       requestTimeout: (dict["requestTimeoutMillis"] as? NSNumber).map { $0.doubleValue / 1000 } ?? defaults.requestTimeout,
       retryPolicy: retryPolicy,
       linkDomains: (dict["linkDomains"] as? [Any])?.compactMap { $0 as? String } ?? defaults.linkDomains,
-      autoTrackInstall: (dict["autoTrackInstall"] as? NSNumber)?.boolValue ?? defaults.autoTrackInstall
+      autoTrackInstall: (dict["autoTrackInstall"] as? NSNumber)?.boolValue ?? defaults.autoTrackInstall,
+      clickTokenSource: clickTokenSource(dict["clickTokenSource"] as? String) ?? defaults.clickTokenSource,
+      requireConsent: (dict["requireConsent"] as? NSNumber)?.boolValue ?? defaults.requireConsent
     )
+  }
+
+  private static func clickTokenSource(_ name: String?) -> LinkTrailClickTokenSource? {
+    switch name {
+    case "pasteButton": return .pasteButton
+    case "automatic": return .automatic
+    default: return nil
+    }
   }
 
   private static func logLevel(_ name: String?) -> LinkTrailLogLevel? {
