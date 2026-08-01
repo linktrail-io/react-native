@@ -46,15 +46,16 @@ export default function App() {
 
   // Route the picked scenario once the simulator sheet has closed (+ a beat for
   // the dismiss animation), so the navigation sticks — the iOS example's pattern.
+  // NOTE: clear `pendingScenario` inside the timeout, not synchronously here —
+  // clearing it synchronously re-runs this effect and its cleanup cancels the
+  // timer before it ever fires (which broke navigation on both platforms).
   useEffect(() => {
     if (state.simulatorOpen || !pendingScenario) return;
     const scenario = pendingScenario;
-    setPendingScenario(null);
-    const timer = setTimeout(
-      () =>
-        dispatch({ type: 'route-link', link: scenario.link, source: 'deferred' }),
-      350,
-    );
+    const timer = setTimeout(() => {
+      dispatch({ type: 'route-link', link: scenario.link, source: 'deferred' });
+      setPendingScenario(null);
+    }, 350);
     return () => clearTimeout(timer);
   }, [state.simulatorOpen, pendingScenario]);
 

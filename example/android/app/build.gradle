@@ -72,6 +72,17 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+// Release signing credentials are read from local.properties (gitignored), e.g.
+//   KICKFLIP_UPLOAD_STORE_FILE=upload-keystore.jks
+//   KICKFLIP_UPLOAD_STORE_PASSWORD=…
+//   KICKFLIP_UPLOAD_KEY_ALIAS=…
+//   KICKFLIP_UPLOAD_KEY_PASSWORD=…
+def uploadKeystoreProps = new Properties()
+def uploadKeystorePropsFile = rootProject.file('local.properties')
+if (uploadKeystorePropsFile.exists()) {
+    uploadKeystorePropsFile.withInputStream { uploadKeystoreProps.load(it) }
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -79,11 +90,11 @@ android {
 
     namespace "com.kickflip"
     defaultConfig {
-        applicationId "com.kickflip"
+        applicationId "io.linktrail.example"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 17
+        versionName "0.0.17"
     }
     signingConfigs {
         debug {
@@ -92,15 +103,24 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            // Credentials read from local.properties (gitignored). The keystore
+            // path is relative to android/ (rootProject). See release buildType.
+            storeFile rootProject.file(uploadKeystoreProps.getProperty('KICKFLIP_UPLOAD_STORE_FILE', 'upload-keystore.jks'))
+            storePassword uploadKeystoreProps.getProperty('KICKFLIP_UPLOAD_STORE_PASSWORD', '')
+            keyAlias uploadKeystoreProps.getProperty('KICKFLIP_UPLOAD_KEY_ALIAS', '')
+            keyPassword uploadKeystoreProps.getProperty('KICKFLIP_UPLOAD_KEY_PASSWORD', '')
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Sign with the upload keystore when its credentials are configured
+            // in local.properties; otherwise fall back to debug so other builds
+            // (CI, dev) don't break.
+            signingConfig uploadKeystoreProps.getProperty('KICKFLIP_UPLOAD_STORE_PASSWORD') ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }

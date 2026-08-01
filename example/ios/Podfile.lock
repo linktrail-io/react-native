@@ -37,7 +37,7 @@ PODS:
   - hermes-engine (0.80.3):
     - hermes-engine/Pre-built (= 0.80.3)
   - hermes-engine/Pre-built (0.80.3)
-  - LinktrailReactNative (0.0.1):
+  - LinktrailReactNative (0.0.3):
     - boost
     - DoubleConversion
     - fast_float
@@ -2521,7 +2521,7 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: fff23161928673afcd95f63146e651726f68b384
-  LinktrailReactNative: 3cc4dc425ca445f9363c594b219f4176f80ef339
+  LinktrailReactNative: 7ec4b501092c29257ae7ab64d4b44a8748139c32
   LinkTrailSDK: b243fcedba4f7437df1171e460294cf81f256e25
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: 2ebc9cc0329ede460c5d52956ce5e1ab715c2c2c
