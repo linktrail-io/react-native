@@ -28,3 +28,7 @@ DerivedData/
 .DS_Store
 *.tgz
 coverage/
+
+# Android upload/release signing keys — never commit
+*.jks
+example/android/upload-keystore.jks

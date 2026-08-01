@@ -69,6 +69,6 @@ repositories {
 
 dependencies {
   implementation "com.facebook.react:react-android"
-  implementation "io.linktrail:sdk:0.0.4"
+  implementation "io.linktrail:sdk:0.0.5"
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
 }

@@ -1,4 +1,4 @@
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import LinkTrail, { type LinkTrailDeepLink } from 'linktrail-react-native';
 import type { StoreAction } from './store';
 import { ConsentManager, type ConsentState } from './consent';
@@ -92,13 +92,15 @@ export function startAttribution(
       await LinkTrail.configure(API_KEY, {
         linkDomains: ['link.kynxlabs.com', 'kick.linktrail.io'],
         requireConsent: true,
-        // 'pasteButton' → the deferred-attribution click token is read from the
-        // clipboard only when the user taps <LinkTrailPasteButton/> (no iOS
-        // "Allow Paste" alert). autoTrackInstall MUST be false so the install
-        // waits for that tap instead of firing token-less at launch (which would
-        // mark the install tracked and make the paste tap a no-op).
+        // 'pasteButton' → iOS reads the deferred click token only when the user
+        // taps <LinkTrailPasteButton/> (no "Allow Paste" alert). Ignored on Android.
         clickTokenSource: 'pasteButton',
-        autoTrackInstall: false,
+        // iOS: false so the install waits for the paste tap (firing token-less at
+        // launch would mark the install tracked and make the tap a no-op).
+        // Android: true — there's no paste button; it uses the Play Install
+        // Referrer, so the install must auto-track for deferred attribution to
+        // resolve. (Consent still gates what's *recorded*; links route regardless.)
+        autoTrackInstall: Platform.OS !== 'ios',
       });
     } catch (error) {
       console.warn('LinkTrail configuration failed:', error);

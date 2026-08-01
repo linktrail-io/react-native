@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.0.3
+
+- Bump the Android native SDK to **`io.linktrail:sdk:0.0.5`** (from `0.0.4`).
+
+## 0.0.2
+
+Consent gating, a native paste button, and the latest native SDKs.
+
+- Native SDK bumps: iOS `LinkTrailSDK ~> 0.0.10`, Android `io.linktrail:sdk:0.0.4`.
+- **Consent gating** (GDPR / ePrivacy): `requireConsent` option (deny-by-default) +
+  `setConsent(granted)`. Deep links still route without consent; only tracking is gated.
+- iOS deferred click token: `clickTokenSource` option + `<LinkTrailPasteButton/>` component
+  (Apple `UIPasteControl`, themeable) + `trackInstallWithClickToken`.
+
 ## 0.0.1
 
 Initial release. React Native New Architecture TurboModule wrapping the native LinkTrail
