@@ -95,6 +95,8 @@ On iOS, deferred attribution recovers a **click token** the tapped link left on 
 - **`'pasteButton'`** (default) — the token is read **only** when the user taps
   `<LinkTrailPasteButton/>` (Apple's `UIPasteControl`), with **no "Allow Paste" alert**. You render
   the button and set **`autoTrackInstall: false`** so the install waits for the tap.
+- **`'none'`** — the SDK **never touches the clipboard** (no button, no alert); deferred matching
+  falls back to probabilistic IP matching only.
 
 Android uses the Play Install Referrer instead, so `clickTokenSource` is ignored there and
 `<LinkTrailPasteButton/>` renders nothing.

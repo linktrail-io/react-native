@@ -205,6 +205,7 @@ public final class LinkTrailModuleImpl: NSObject {
     switch name {
     case "pasteButton": return .pasteButton
     case "automatic": return .automatic
+    case "none": return LinkTrailClickTokenSource.none
     default: return nil
     }
   }
