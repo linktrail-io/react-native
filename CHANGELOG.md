@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.4
+
+- Bump the iOS native SDK to **`LinkTrailSDK ~> 0.0.11`** (from `0.0.10`).
+- New `clickTokenSource: 'none'` mode (iOS) — the SDK never touches the clipboard (no paste
+  button, no "Allow Paste" alert); deferred matching falls back to probabilistic IP matching.
+
 ## 0.0.3
 
 - Bump the Android native SDK to **`io.linktrail:sdk:0.0.5`** (from `0.0.4`).
