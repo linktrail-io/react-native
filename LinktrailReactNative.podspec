@@ -18,7 +18,7 @@ Pod::Spec.new do |s|
 
   # The binary LinkTrail iOS SDK, published to the CocoaPods trunk — CocoaPods
   # resolves it automatically, so the consuming app needs no extra Podfile line.
-  s.dependency "LinkTrailSDK", "~> 0.0.10"
+  s.dependency "LinkTrailSDK", "~> 0.0.11"
 
   s.pod_target_xcconfig = {
     "DEFINES_MODULE" => "YES",

@@ -101,8 +101,10 @@ export interface LinkTrailOptions {
    * iOS only. How the SDK obtains the deferred-attribution click token from the
    * clipboard. `'pasteButton'` (default) reads it only when the user taps an
    * Apple paste control (no "Allow Paste" alert); `'automatic'` reads the
-   * clipboard at install (shows the system "Allow Paste" alert). Ignored on
-   * Android (which uses the Play Install Referrer).
+   * clipboard at install (shows the system "Allow Paste" alert); `'none'` never
+   * touches the clipboard at all (no button, no alert) and relies on
+   * probabilistic IP matching only. Ignored on Android (which uses the Play
+   * Install Referrer).
    */
   clickTokenSource?: LinkTrailClickTokenSource;
   /**
@@ -115,7 +117,7 @@ export interface LinkTrailOptions {
 }
 
 /** Where the iOS SDK reads the deferred-attribution click token from. */
-export type LinkTrailClickTokenSource = 'pasteButton' | 'automatic';
+export type LinkTrailClickTokenSource = 'pasteButton' | 'automatic' | 'none';
 
 /** SKAdNetwork 4.0+ coarse conversion value bucket (iOS only). */
 export type LinkTrailCoarseConversionValue = 'low' | 'medium' | 'high';

@@ -41,10 +41,12 @@ jobs:
           LC_ALL: en_US.UTF-8
         run: |
           for i in 1 2 3; do
-            bundle exec pod install --repo-update && break
+            bundle exec pod install --repo-update && exit 0
             echo "pod install attempt $i failed; retrying…"
             sleep 5
           done
+          echo "pod install failed after 3 attempts" >&2
+          exit 1
 
       - name: Build (Debug, iOS simulator)
         working-directory: example/ios
