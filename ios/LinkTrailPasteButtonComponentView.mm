@@ -64,7 +64,8 @@ using namespace facebook::react;
     [_pasteView configureWithDisplayMode:RCTNSStringFromString(toString(newProps.displayMode))
                              cornerStyle:RCTNSStringFromString(toString(newProps.cornerStyle))
                          foregroundColor:RCTUIColorFromSharedColor(newProps.foregroundColor)
-                               fillColor:RCTUIColorFromSharedColor(newProps.fillColor)];
+                               fillColor:RCTUIColorFromSharedColor(newProps.fillColor)
+                           grantsConsent:newProps.grantsConsent];
   }
   [super updateProps:props oldProps:oldProps];
 }

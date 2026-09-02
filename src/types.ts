@@ -91,10 +91,22 @@ export interface LinkTrailOptions {
   autoTrackInstall?: boolean;
   /**
    * Gate attribution/tracking behind user consent (GDPR / ePrivacy). Default
-   * `true` — **deny-by-default**. While consent is unset or denied the SDK holds
-   * the install and drops events, but deep links are still **routed** (`onLink`
-   * fires) so the user reaches their destination. Call `setConsent(true)` to
-   * release tracking. Set `false` to attribute at init without a consent step.
+   * `true` — **deny-by-default and hold-until-decision**: until your app records
+   * a decision, **nothing leaves the device** (no install, no clipboard read, no
+   * device identifier). The held install is persisted, so a user who decides on
+   * a later launch is still attributed.
+   *
+   * Either answer releases it, as exactly one install: `setConsent(true)` sends
+   * the counted, attributed install (replaying any click token captured before
+   * the decision); `setConsent(false)` sends one **uncounted** install carrying
+   * `consent: false` — the backend resolves the deferred link so the user still
+   * lands in the right place, but records nothing and sends no device id.
+   *
+   * **Re-engagement** links (app already installed) still route without a
+   * decision — they're resolved, not recorded, so `onLink` fires either way.
+   *
+   * ⚠️ An app that leaves this on and **never calls `setConsent`** sends nothing
+   * at all. Set `false` to attribute at init when consent is handled elsewhere.
    */
   requireConsent?: boolean;
   /**

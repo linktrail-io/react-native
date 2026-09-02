@@ -16,6 +16,12 @@ export interface LinkTrailPasteButtonProps extends ViewProps {
   foregroundColor?: ColorValue;
   /** Button fill color. */
   fillColor?: ColorValue;
+  /**
+   * Whether the tap also records tracking consent. Default `true`, so the
+   * install the tap triggers isn't held by the deny-by-default consent gate.
+   * Set `false` when a separate consent UI owns the decision.
+   */
+  grantsConsent?: boolean;
 }
 
 /**
@@ -24,7 +30,8 @@ export interface LinkTrailPasteButtonProps extends ViewProps {
  * it to the SDK. Style it to match your theme via `displayMode` / `cornerStyle` /
  * `foregroundColor` / `fillColor`, and size it with `style` (width/height).
  * Configure the SDK with `clickTokenSource: 'pasteButton'` and
- * `autoTrackInstall: false` so the install waits for the tap. Renders nothing on
+ * `autoTrackInstall: false` so the install waits for the tap. The tap also
+ * records consent by default (see `grantsConsent`). Renders nothing on
  * Android (which uses the Play Install Referrer, so no paste button is needed).
  */
 export function LinkTrailPasteButton({
