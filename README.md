@@ -66,10 +66,26 @@ to forward URLs yourself via `LinkTrail.handleDeepLink(url)`.
 ### Consent gating
 
 `requireConsent` (default `true`) gates attribution/tracking behind the user's decision —
-**deny-by-default** for GDPR / ePrivacy. While consent is unset or denied the SDK holds the install
-and drops events, but **deep links still route** (`onLink` fires) so the user reaches their
-destination. The SDK exposes **no consent getter** — your app is the source of truth: persist the
-choice and replay it with `setConsent` on every launch after `configure`.
+**deny-by-default and hold-until-decision** for GDPR / ePrivacy. Until your app records a decision,
+**nothing leaves the device**: no install, no clipboard read, no device identifier. The held install
+is persisted, so a user who decides on a later launch is still attributed.
+
+Each answer releases it as **exactly one** install:
+
+| Answer | What goes out |
+| --- | --- |
+| `setConsent(true)` | the counted, attributed install — replaying any click token captured before the decision |
+| `setConsent(false)` | one **uncounted** install with `consent: false` — the backend resolves the deferred link so the user still lands in the right place, but records nothing and sends no device id |
+
+**Re-engagement** links (app already installed) still route without a decision — they're resolved,
+not recorded, so `onLink` fires either way. The SDK exposes **no consent getter** — your app is the
+source of truth: persist the choice and replay it with `setConsent` on every launch after
+`configure`.
+
+> ⚠️ **Migration (SDK 0.0.12):** an app that leaves `requireConsent` on and **never calls
+> `setConsent`** now sends nothing at all — no install, no attribution, no deferred routing. Either
+> call `setConsent` once your consent UI resolves, or set `requireConsent: false` if consent is
+> handled elsewhere. Tapping `<LinkTrailPasteButton/>` counts as granting consent by default.
 
 ```ts
 await LinkTrail.configure('lt_live_…', { requireConsent: true });
@@ -94,7 +110,8 @@ On iOS, deferred attribution recovers a **click token** the tapped link left on 
   system **"Allow Paste"** alert on first launch.
 - **`'pasteButton'`** (default) — the token is read **only** when the user taps
   `<LinkTrailPasteButton/>` (Apple's `UIPasteControl`), with **no "Allow Paste" alert**. You render
-  the button and set **`autoTrackInstall: false`** so the install waits for the tap.
+  the button and set **`autoTrackInstall: false`** so the install waits for the tap. The tap is a
+  deliberate affirmative act, so it also **records consent** by default (`grantsConsent`).
 - **`'none'`** — the SDK **never touches the clipboard** (no button, no alert); deferred matching
   falls back to probabilistic IP matching only.
 
@@ -131,6 +148,7 @@ await LinkTrail.configure('lt_live_…', {
 | `cornerStyle` | `'dynamic' \| 'fixed' \| 'capsule' \| 'large' \| 'medium' \| 'small'` | `'capsule'` | Corner rounding. |
 | `foregroundColor` | `ColorValue` | system | Label/icon color. |
 | `fillColor` | `ColorValue` | system | Button background. |
+| `grantsConsent` | `boolean` | `true` | Whether the tap also records tracking consent, so the install it triggers isn't held by the deny-by-default gate. Set `false` when a separate consent UI owns the decision. |
 | `style` | `ViewStyle` | — | Size/layout (width, height, margins…). |
 
 Requires **iOS 16+**. The on-screen label is the system **"Paste"** string — Apple's

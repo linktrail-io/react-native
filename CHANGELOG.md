@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.0.5
+
+- Bump the iOS native SDK to **`LinkTrailSDK ~> 0.0.12`** (from `0.0.11`).
+- **Consent is now hold-until-decision** (iOS): until your app records a decision, nothing
+  leaves the device — no install, no clipboard read, no device identifier. The held install is
+  persisted, and each answer releases exactly one install (`setConsent(false)` sends an
+  uncounted one that still resolves the deferred link). Re-engagement links still route
+  without a decision.
+- **`<LinkTrailPasteButton/>` now grants consent on tap** (new `grantsConsent` prop, default
+  `true`), matching the native SDK — without it the install the tap triggers would be held by
+  the deny-by-default gate. Set `grantsConsent={false}` when a separate consent UI owns the
+  decision.
+
+⚠️ **Migration:** an app that leaves `requireConsent` on (the default) and never calls
+`setConsent` now sends nothing at all. Call `setConsent` when your consent UI resolves, or set
+`requireConsent: false` if consent is handled elsewhere.
+
 ## 0.0.4
 
 - Bump the iOS native SDK to **`LinkTrailSDK ~> 0.0.11`** (from `0.0.10`).

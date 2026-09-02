@@ -6,6 +6,11 @@ import LinkTrailSDK
 /// (no "Allow Paste" alert) and hands it to the SDK via `trackInstall(clickToken:)`.
 /// Appearance is driven by the RN props (`displayMode`/`cornerStyle`/colors);
 /// size comes from the RN `style`. iOS 16+.
+///
+/// The tap is a deliberate affirmative act, so by default it also records
+/// tracking consent (`grantsConsent`) — mirroring the SDK's own paste button.
+/// Without it the install would be held by the deny-by-default consent gate and
+/// the token would never be sent.
 @available(iOS 16.0, *)
 @objc(LinkTrailPasteButtonView)
 public final class LinkTrailPasteButtonView: UIView {
@@ -21,6 +26,7 @@ public final class LinkTrailPasteButtonView: UIView {
   private var cornerStyleName = "capsule"
   private var foregroundColor: UIColor?
   private var fillColor: UIColor?
+  private var grantsConsent = true
 
   public override init(frame: CGRect) {
     super.init(frame: frame)
@@ -35,8 +41,13 @@ public final class LinkTrailPasteButtonView: UIView {
     displayMode: String,
     cornerStyle: String,
     foregroundColor: UIColor?,
-    fillColor: UIColor?
+    fillColor: UIColor?,
+    grantsConsent: Bool
   ) {
+    // Applied before the appearance early-return: this prop can change on its own.
+    self.grantsConsent = grantsConsent
+    coordinator?.grantsConsent = grantsConsent
+
     let unchanged =
       displayMode == displayModeName &&
       cornerStyle == cornerStyleName &&
@@ -55,6 +66,7 @@ public final class LinkTrailPasteButtonView: UIView {
     control?.removeFromSuperview()
 
     let coord = coordinator ?? PasteCoordinator { [weak self] token in self?.onToken?(token) }
+    coord.grantsConsent = grantsConsent
     coordinator = coord
 
     let configuration = UIPasteControl.Configuration()
@@ -97,6 +109,9 @@ public final class LinkTrailPasteButtonView: UIView {
 
   /// The `UIPasteControl` target: accepts pasted text and forwards it to the SDK.
   final class PasteCoordinator: UIResponder {
+    /// Whether the tap also records tracking consent. Mirrors the RN prop.
+    var grantsConsent = true
+
     private let onToken: (String) -> Void
 
     init(onToken: @escaping (String) -> Void) {
@@ -108,8 +123,15 @@ public final class LinkTrailPasteButtonView: UIView {
     override func paste(itemProviders: [NSItemProvider]) {
       guard let provider = itemProviders.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else { return }
       let onToken = self.onToken
+      let grantsConsent = self.grantsConsent
       provider.loadObject(ofClass: NSString.self) { object, _ in
         guard let string = object as? String else { return }
+        // Order matters: consent first, so the install below carries `consent: true`
+        // instead of being held by the deny-by-default gate. Safe because the paste
+        // flow requires `autoTrackInstall: false` — with auto-tracking on,
+        // `setConsent` would fire its own token-less install and consume the
+        // one-shot, losing the deterministic token the user just handed us.
+        if grantsConsent { LinkTrailSDK.LinkTrail.shared?.setConsent(true) }
         LinkTrailSDK.LinkTrail.shared?.trackInstall(clickToken: string)
         DispatchQueue.main.async { onToken(string) }
       }
