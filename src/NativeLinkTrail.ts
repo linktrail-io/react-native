@@ -53,6 +53,18 @@ export interface Spec extends TurboModule {
   /** iOS: updates the SKAdNetwork conversion value. Android: no-op. */
   updateConversionValue(value: number, coarseValue?: string): void;
 
+  /**
+   * iOS: updates pending AdAttributionKit / SKAdNetwork postbacks. `conversionTypes`
+   * is a list of 'install' / 'reengagement' (empty = all). Resolves whether every
+   * framework call succeeded. Android: resolves `false`.
+   */
+  updatePostbackConversionValue(
+    value: number,
+    coarseValue: string | undefined,
+    lockPostback: boolean,
+    conversionTypes: Array<string>
+  ): Promise<boolean>;
+
   /** Grants/revokes tracking consent (only meaningful with `requireConsent`). */
   setConsent(granted: boolean): void;
 

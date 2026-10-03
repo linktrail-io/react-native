@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- New `updatePostbackConversionValue(value, { coarseValue, lockPostback, conversionTypes })` (iOS):
+  AdAttributionKit postback updates, with locking and per-conversion-type updates on iOS 18+.
+  Resolves `false` on Android. `registerForSKAdAttribution()` / `updateConversionValue()` now reach
+  AdAttributionKit too.
+- Requires the iOS native SDK **`LinkTrailSDK ~> 0.0.13`** (the first release with AdAttributionKit).
+
 ## 0.0.4
 
 - Bump the iOS native SDK to **`LinkTrailSDK ~> 0.0.11`** (from `0.0.10`).

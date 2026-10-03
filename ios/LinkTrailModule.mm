@@ -126,6 +126,21 @@ RCT_EXPORT_MODULE(LinkTrail)
   [_impl updateConversionValue:(NSInteger)llround(value) coarseValue:coarseValue];
 }
 
+- (void)updatePostbackConversionValue:(double)value
+                         coarseValue:(NSString *)coarseValue
+                        lockPostback:(BOOL)lockPostback
+                     conversionTypes:(NSArray *)conversionTypes
+                             resolve:(RCTPromiseResolveBlock)resolve
+                              reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl updatePostbackConversionValue:(NSInteger)llround(value)
+                           coarseValue:coarseValue
+                          lockPostback:lockPostback
+                       conversionTypes:conversionTypes
+                               resolve:resolve
+                                reject:^(NSString *code, NSString *message) { reject(code, message, nil); }];
+}
+
 - (void)setConsent:(BOOL)granted
 {
   [_impl setConsent:granted];

@@ -3,6 +3,7 @@ import NativeLinkTrail from './NativeLinkTrail';
 import type {
   LinkTrailAttribution,
   LinkTrailCoarseConversionValue,
+  LinkTrailPostbackUpdateOptions,
   LinkTrailDeepLink,
   LinkTrailErrorEvent,
   LinkTrailEventResult,
@@ -188,6 +189,25 @@ export const LinkTrail = {
     coarseValue?: LinkTrailCoarseConversionValue
   ): void {
     NativeLinkTrail.updateConversionValue(value, coarseValue);
+  },
+
+  /**
+   * iOS: updates the conversion value of pending AdAttributionKit (iOS 17.4+) and
+   * SKAdNetwork postbacks, with postback locking and, on iOS 18+, per-conversion-type
+   * updates. Resolves `true` when every framework call succeeded (also when the
+   * user never saw an ad, since there is nothing to update). Android: resolves
+   * `false` — there is no equivalent.
+   */
+  updatePostbackConversionValue(
+    value: number,
+    options: LinkTrailPostbackUpdateOptions = {}
+  ): Promise<boolean> {
+    return NativeLinkTrail.updatePostbackConversionValue(
+      value,
+      options.coarseValue,
+      options.lockPostback ?? false,
+      options.conversionTypes ?? []
+    );
   },
 
   /**

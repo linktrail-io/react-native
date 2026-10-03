@@ -4,6 +4,7 @@ import android.net.Uri
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.ReadableType
 import com.facebook.react.bridge.WritableMap
@@ -134,6 +135,17 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
   override fun registerForSKAdAttribution() = Unit
 
   override fun updateConversionValue(value: Double, coarseValue: String?) = Unit
+
+  override fun updatePostbackConversionValue(
+    value: Double,
+    coarseValue: String?,
+    lockPostback: Boolean,
+    conversionTypes: ReadableArray,
+    promise: Promise
+  ) {
+    // AdAttributionKit is Apple-only.
+    promise.resolve(false)
+  }
 
   // ── Consent ──────────────────────────────────────────────────────────────
 

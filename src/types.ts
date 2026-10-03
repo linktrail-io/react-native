@@ -122,6 +122,22 @@ export type LinkTrailClickTokenSource = 'pasteButton' | 'automatic' | 'none';
 /** SKAdNetwork 4.0+ coarse conversion value bucket (iOS only). */
 export type LinkTrailCoarseConversionValue = 'low' | 'medium' | 'high';
 
+/**
+ * Which conversions an AdAttributionKit postback update applies to (iOS 18+;
+ * earlier versions update every type).
+ */
+export type LinkTrailConversionType = 'install' | 'reengagement';
+
+/** Options for `updatePostbackConversionValue` (iOS only). */
+export interface LinkTrailPostbackUpdateOptions {
+  /** Coarse value for lower crowd-anonymity tiers. Defaults to `'low'`. */
+  coarseValue?: LinkTrailCoarseConversionValue;
+  /** Finalise the postback so no later update applies. Defaults to `false`. */
+  lockPostback?: boolean;
+  /** Restrict the update to these conversion types (iOS 18+). Omit for all. */
+  conversionTypes?: LinkTrailConversionType[];
+}
+
 /** A subscription returned by the event-listener APIs. */
 export interface LinkTrailSubscription {
   remove(): void;
