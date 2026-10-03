@@ -1,5 +1,6 @@
 import { Linking } from 'react-native';
 import NativeLinkTrail from './NativeLinkTrail';
+import { Identity } from './identity';
 import type {
   LinkTrailAttribution,
   LinkTrailCoarseConversionValue,
@@ -16,6 +17,12 @@ export {
   LinkTrailPasteButton,
   type LinkTrailPasteButtonProps,
 } from './LinkTrailPasteButton';
+
+const identity = new Identity({
+  persistUserId: (userId) => NativeLinkTrail.persistUserId(userId ?? undefined),
+  loadUserId: () => NativeLinkTrail.loadUserId(),
+  forwardUserId: (userId) => NativeLinkTrail.forwardUserId(userId ?? undefined),
+});
 
 let linkingSubscription: LinkTrailSubscription | null = null;
 let initialUrlForwarded = false;
@@ -51,6 +58,7 @@ export const LinkTrail = {
   async configure(apiKey: string, options: LinkTrailOptions = {}): Promise<void> {
     const { autoHandleLinks = true, ...nativeOptions } = options;
     await NativeLinkTrail.configure(apiKey, nativeOptions);
+    identity.configure(nativeOptions.requireConsent ?? true).catch(() => {});
     if (autoHandleLinks) {
       startLinkForwarding();
     } else {
@@ -201,6 +209,35 @@ export const LinkTrail = {
    */
   setConsent(granted: boolean): void {
     NativeLinkTrail.setConsent(granted);
+    identity.setConsent(granted).catch(() => {});
+  },
+
+  /**
+   * Associates events with your app's own user id. Use an opaque internal id or
+   * a hash — **never** an email, phone number or name. 1-128 characters from
+   * `A-Z a-z 0-9 _ - . :`; anything else rejects with code `invalid_user_id`
+   * and nothing is stored or sent.
+   *
+   * The id is persisted across launches. It is only transmitted while consent
+   * is granted (see `setConsent`); calling a different id replaces the old one.
+   * Delivery is best-effort and never throws for network reasons. Requires a
+   * native SDK with identity support (see README).
+   */
+  setUserId(userId: string): Promise<void> {
+    return identity.setUserId(userId);
+  },
+
+  /**
+   * Clears the stored user id locally (no network call). Subsequent events
+   * carry no user id.
+   */
+  logout(): Promise<void> {
+    return identity.logout();
+  },
+
+  /** The currently stored user id, or `null`. */
+  getUserId(): Promise<string | null> {
+    return identity.getUserId();
   },
 
   /**

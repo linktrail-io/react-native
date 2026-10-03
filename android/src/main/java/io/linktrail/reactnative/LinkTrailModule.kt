@@ -141,6 +141,56 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
     LinkTrail.shared?.setConsent(granted)
   }
 
+  // ── User identity ──────────────────────────────────────────────────────────
+
+  private val identityPrefs
+    get() = reactApplicationContext.getSharedPreferences(
+      "io.linktrail.reactnative.identity",
+      android.content.Context.MODE_PRIVATE
+    )
+
+  override fun persistUserId(userId: String?, promise: Promise) {
+    identityPrefs.edit().apply {
+      if (userId != null) putString("userId", userId) else remove("userId")
+    }.apply()
+    promise.resolve(null)
+  }
+
+  override fun loadUserId(promise: Promise) {
+    promise.resolve(identityPrefs.getString("userId", null))
+  }
+
+  /**
+   * The pinned SDK (io.linktrail:sdk:0.0.5) has no identity API. Look the methods
+   * up reflectively so this compiles today and starts delivering as soon as the
+   * dependency moves to a release that adds `setUserId(String)` / `logout()`.
+   */
+  override fun forwardUserId(userId: String?, promise: Promise) {
+    val sdk = LinkTrail.shared
+    if (sdk == null) {
+      promise.resolve(false)
+      return
+    }
+    try {
+      val methods = sdk.javaClass.methods
+      val target = if (userId != null) {
+        methods.firstOrNull { it.name == "setUserId" && it.parameterTypes.size == 1 }
+          ?.let { it to arrayOf<Any?>(userId) }
+      } else {
+        methods.firstOrNull { it.name == "logout" && it.parameterTypes.isEmpty() }
+          ?.let { it to arrayOf<Any?>() }
+      }
+      if (target == null) {
+        promise.resolve(false)
+      } else {
+        target.first.invoke(sdk, *target.second)
+        promise.resolve(true)
+      }
+    } catch (t: Throwable) {
+      promise.resolve(false) // best-effort
+    }
+  }
+
   // ── Testing ────────────────────────────────────────────────────────────────
 
   override fun resetForTesting() {

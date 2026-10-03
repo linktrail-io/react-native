@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **User identity**: `LinkTrail.setUserId(id)`, `LinkTrail.logout()`, `LinkTrail.getUserId()`.
+  The id is validated (`^[A-Za-z0-9_.:-]{1,128}$`, rejects with `invalid_user_id`), persisted across
+  launches, and never transmitted while consent is denied/undecided. Delivery needs a native SDK
+  release with identity support; the pinned native SDKs are unchanged (see README).
+
 ## 0.0.4
 
 - Bump the iOS native SDK to **`LinkTrailSDK ~> 0.0.11`** (from `0.0.10`).
