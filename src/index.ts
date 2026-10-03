@@ -1,5 +1,10 @@
 import { Linking } from 'react-native';
 import NativeLinkTrail from './NativeLinkTrail';
+import {
+  normalizeRevenue,
+  type LinkTrailRevenueParams,
+  type LinkTrailRevenueResult,
+} from './revenue';
 import type {
   LinkTrailAttribution,
   LinkTrailCoarseConversionValue,
@@ -12,6 +17,12 @@ import type {
 } from './types';
 
 export * from './types';
+export {
+  LinkTrailRevenueError,
+  type LinkTrailRevenueErrorCode,
+  type LinkTrailRevenueParams,
+  type LinkTrailRevenueResult,
+} from './revenue';
 export {
   LinkTrailPasteButton,
   type LinkTrailPasteButtonProps,
@@ -139,6 +150,37 @@ export const LinkTrail = {
       options.value,
       options.currency
     ) as Promise<LinkTrailEventResult>;
+  },
+
+  /**
+   * Reports an in-app purchase / subscription payment for revenue and ROAS.
+   * Call it from your purchase library's success callback (react-native-iap,
+   * expo-iap, RevenueCat, …) with the store's transaction id.
+   *
+   * `transactionId` is the dedupe key: the server and the native SDK both
+   * ignore repeats, so retrying or calling from several places is safe (a
+   * repeat resolves with `duplicate: true`). Failed deliveries are queued and
+   * retried natively; the promise rejects so you can observe the first failure.
+   *
+   * Rejects with `LinkTrailRevenueError` (nothing sent) on invalid input.
+   * Honors `requireConsent` like `trackEvent`.
+   */
+  async trackRevenue(
+    params: LinkTrailRevenueParams
+  ): Promise<LinkTrailRevenueResult> {
+    const { transactionId, value, currency, productId } =
+      normalizeRevenue(params);
+    const result = (await NativeLinkTrail.trackRevenue(
+      transactionId,
+      value,
+      currency,
+      productId
+    )) as Partial<LinkTrailRevenueResult>;
+    return {
+      ...(result.id != null ? { id: result.id } : {}),
+      attributed: result.attributed ?? false,
+      duplicate: result.duplicate ?? false,
+    };
   },
 
   /**

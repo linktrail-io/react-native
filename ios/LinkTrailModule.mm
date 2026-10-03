@@ -77,6 +77,21 @@ RCT_EXPORT_MODULE(LinkTrail)
              reject:^(NSString *code, NSString *message) { reject(code, message, nil); }];
 }
 
+- (void)trackRevenue:(NSString *)transactionId
+               value:(double)value
+            currency:(NSString *)currency
+           productId:(NSString *)productId
+             resolve:(RCTPromiseResolveBlock)resolve
+              reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl trackRevenue:transactionId
+                value:value
+             currency:currency
+            productId:productId
+              resolve:resolve
+               reject:^(NSString *code, NSString *message) { reject(code, message, nil); }];
+}
+
 - (void)trackInstallWithClickToken:(NSString *)clickToken
                              force:(BOOL)force
                            resolve:(RCTPromiseResolveBlock)resolve

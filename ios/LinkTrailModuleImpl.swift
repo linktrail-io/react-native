@@ -101,6 +101,28 @@ public final class LinkTrailModuleImpl: NSObject {
     }
   }
 
+  @objc public func trackRevenue(
+    _ transactionId: String,
+    value: Double,
+    currency: String,
+    productId: String?,
+    resolve: @escaping Resolve,
+    reject: @escaping Reject
+  ) {
+    guard let sdk = requireSDK(reject) else { return }
+    Task {
+      do {
+        let result: LinkTrailRevenueResult = try await sdk.trackRevenue(
+          transactionId: transactionId, value: value, currency: currency, productId: productId)
+        var dict: [String: Any] = ["attributed": result.attributed, "duplicate": result.duplicate]
+        if let id = result.id { dict["id"] = id }
+        resolve(dict)
+      } catch {
+        reject(Self.errorCode(error), error.localizedDescription)
+      }
+    }
+  }
+
   // MARK: - Deep linking
 
   @objc public func handleDeepLink(
@@ -255,6 +277,13 @@ public final class LinkTrailModuleImpl: NSObject {
   }
 
   private static func errorCode(_ error: Error) -> String {
+    if let revenueError = error as? LinkTrailRevenueError {
+      switch revenueError {
+      case .invalidTransactionId: return "invalid_transaction_id"
+      case .invalidValue: return "invalid_value"
+      case .invalidCurrency: return "invalid_currency"
+      }
+    }
     guard let error = error as? LinkTrailError else { return "unknown" }
     switch error {
     case .invalidURL: return "invalid_url"
