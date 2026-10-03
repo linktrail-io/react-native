@@ -127,8 +127,11 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
 
   // ── iOS-only APIs (no-ops on Android) ──────────────────────────────────────
 
+  // Android has no App Tracking Transparency: no OS gate restricts tracking, so
+  // report "not restricted" (true), matching the Flutter SDK. App-level consent is
+  // separate — see setConsent.
   override fun requestTrackingAuthorization(promise: Promise) {
-    promise.resolve(false)
+    promise.resolve(true)
   }
 
   override fun registerForSKAdAttribution() = Unit

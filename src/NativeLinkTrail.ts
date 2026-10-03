@@ -44,7 +44,7 @@ export interface Spec extends TurboModule {
   /** The most recent resolved deep link from the current session, or null. */
   getLastDeepLink(): Promise<UnsafeObject>;
 
-  /** iOS: requests ATT authorization. Android: resolves `false`. */
+  /** iOS: requests ATT authorization. Android: no ATT, resolves `true` (not restricted). */
   requestTrackingAuthorization(): Promise<boolean>;
 
   /** iOS: registers for SKAdNetwork attribution. Android: no-op. */
