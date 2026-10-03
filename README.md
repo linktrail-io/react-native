@@ -85,6 +85,34 @@ LinkTrail.setConsent(storedGranted);
 Set `requireConsent: false` to attribute at init without a consent step. See the example app's
 [`src/consent.ts`](example/src/consent.ts) for the persist-and-replay pattern.
 
+### User identity
+
+Link events to your own user with `setUserId` / `logout`:
+
+```ts
+await LinkTrail.setUserId('u_8f3a91c2'); // after login
+await LinkTrail.logout();                // after sign-out: clears the id locally, no network call
+const current = await LinkTrail.getUserId(); // string | null
+```
+
+- **Never pass PII.** Use your app's own opaque internal id or a hash — not an email, phone number
+  or name.
+- Valid ids are 1-128 characters from `A-Z a-z 0-9 _ - . :` (`^[A-Za-z0-9_.:-]{1,128}$`). Anything
+  else rejects with an error whose `code` is `invalid_user_id`; nothing is stored or sent.
+- The id is persisted across launches. Calling `setUserId` with a different id replaces it.
+- **Consent first:** the id is never transmitted while consent is denied or undecided (it is only
+  stored locally). Once consent is granted (`setConsent(true)`, or `requireConsent: false`) the id is
+  sent once to link the device's installs, then attached to later open/custom events. Revoking
+  consent stops sending it.
+- Delivery is best-effort and never throws or blocks your app.
+
+> **Native SDK requirement.** The native SDKs perform the network calls, so sending the id needs a
+> native SDK release with identity support. This wrapper still pins the earlier releases
+> (iOS `LinkTrailSDK ~> 0.0.11`, Android `io.linktrail:sdk:0.0.5`); with those the id is validated and
+> persisted but **not transmitted**. Android picks up identity support automatically once the pin
+> moves to a release exposing `setUserId` / `logout`; iOS additionally needs a small wrapper change
+> at that point.
+
 ### Deferred attribution & the paste button (iOS)
 
 On iOS, deferred attribution recovers a **click token** the tapped link left on the clipboard.

@@ -131,6 +131,26 @@ RCT_EXPORT_MODULE(LinkTrail)
   [_impl setConsent:granted];
 }
 
+- (void)persistUserId:(NSString *)userId
+              resolve:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl persistUserId:userId resolve:resolve];
+}
+
+- (void)loadUserId:(RCTPromiseResolveBlock)resolve
+            reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl loadUserId:resolve];
+}
+
+- (void)forwardUserId:(NSString *)userId
+              resolve:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl forwardUserId:userId resolve:resolve];
+}
+
 - (void)resetForTesting
 {
   [_impl resetForTesting];

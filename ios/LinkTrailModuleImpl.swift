@@ -159,6 +159,30 @@ public final class LinkTrailModuleImpl: NSObject {
     sdk?.setConsent(granted)
   }
 
+  // MARK: - User identity
+
+  private static let userIdKey = "io.linktrail.reactnative.userId"
+
+  @objc public func persistUserId(_ userId: String?, resolve: @escaping Resolve) {
+    if let userId {
+      UserDefaults.standard.set(userId, forKey: Self.userIdKey)
+    } else {
+      UserDefaults.standard.removeObject(forKey: Self.userIdKey)
+    }
+    resolve(nil)
+  }
+
+  @objc public func loadUserId(_ resolve: @escaping Resolve) {
+    resolve(UserDefaults.standard.string(forKey: Self.userIdKey))
+  }
+
+  /// The pinned LinkTrailSDK (~> 0.0.11) has no identity API, and Swift offers no
+  /// way to probe for a missing method at runtime, so this reports `false`
+  /// ("not delivered") until the pod pin moves to a release that adds it.
+  @objc public func forwardUserId(_ userId: String?, resolve: @escaping Resolve) {
+    resolve(false)
+  }
+
   // MARK: - Testing
 
   @objc public func resetForTesting() {

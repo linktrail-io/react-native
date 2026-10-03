@@ -26,7 +26,8 @@
     "typecheck": "tsc",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "clean": "del-cli lib",
-    "prepare": "bob build"
+    "prepare": "bob build",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "keywords": [
     "react-native",
@@ -60,6 +61,7 @@
     "react": "19.1.0",
     "react-native": "^0.80.0",
     "react-native-builder-bob": "^0.40.6",
+    "tsx": "^4.23.15",
     "typescript": "^5.8.3"
   },
   "peerDependencies": {

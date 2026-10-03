@@ -56,6 +56,18 @@ export interface Spec extends TurboModule {
   /** Grants/revokes tracking consent (only meaningful with `requireConsent`). */
   setConsent(granted: boolean): void;
 
+  /** Wrapper-owned persistence for the user id (UserDefaults / SharedPreferences). */
+  persistUserId(userId?: string): Promise<void>;
+
+  /** Reads the persisted user id, or null. */
+  loadUserId(): Promise<string | null>;
+
+  /**
+   * Hands the user id to the native SDK (null = clear). Resolves false when the
+   * pinned native SDK has no identity support or is not configured.
+   */
+  forwardUserId(userId?: string): Promise<boolean>;
+
   /** Clears the install flag, cached attribution, queued events, device id. */
   resetForTesting(): void;
 
