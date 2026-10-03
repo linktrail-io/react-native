@@ -153,6 +153,26 @@ public final class LinkTrailModuleImpl: NSObject {
     sdk?.updateConversionValue(value, coarseValue: coarse)
   }
 
+  @objc public func updatePostbackConversionValue(
+    _ value: Int,
+    coarseValue: String?,
+    lockPostback: Bool,
+    conversionTypes: [String],
+    resolve: @escaping Resolve,
+    reject: @escaping Reject
+  ) {
+    guard let sdk = requireSDK(reject) else { return }
+    let coarse = coarseValue.flatMap(LinkTrailCoarseConversionValue.init(rawValue:))
+    // An empty list means "all types"; unknown strings are dropped rather than failing the call.
+    let types = Set(conversionTypes.compactMap(LinkTrailConversionType.init(rawValue:)))
+    Task {
+      resolve(
+        await sdk.updatePostbackConversionValue(
+          value, coarseValue: coarse, lockPostback: lockPostback,
+          conversionTypes: types.isEmpty ? nil : types))
+    }
+  }
+
   // MARK: - Consent
 
   @objc public func setConsent(_ granted: Bool) {

@@ -57,6 +57,13 @@ const lastLink = await LinkTrail.getLastDeepLink();
 await LinkTrail.requestTrackingAuthorization();
 LinkTrail.registerForSKAdAttribution();
 LinkTrail.updateConversionValue(42, 'medium');
+// iOS 17.4+ AdAttributionKit (SKAdNetwork before); conversionTypes applies on iOS 18+.
+// Resolves false on Android.
+await LinkTrail.updatePostbackConversionValue(12, {
+  coarseValue: 'high',
+  lockPostback: false,
+  conversionTypes: ['install'],
+});
 ```
 
 `configure` also takes `{ logEnabled, logLevel, requestTimeoutMillis, retryPolicy, linkDomains,
