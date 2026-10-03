@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- New **`LinkTrail.trackRevenue({ transactionId, value, currency, productId? })`** — report in-app
+  purchases / subscription payments for revenue and ROAS. Resolves with
+  `{ id?, attributed, duplicate }`; deduped on `transactionId` (safe to retry). Invalid input
+  rejects with the new typed `LinkTrailRevenueError` (`invalid_transaction_id` / `invalid_value` /
+  `invalid_currency`) before anything is sent. Exports `LinkTrailRevenueParams`,
+  `LinkTrailRevenueResult`, `LinkTrailRevenueErrorCode`.
+- Adds the first unit tests (`npm test`, jest).
+- **Not releasable yet:** the native bridge calls `trackRevenue` / `trackRevenueAsync`, which ship in
+  the next iOS (`LinkTrailSDK`) and Android (`io.linktrail:sdk`) releases. The pinned versions
+  (`~> 0.0.11` / `0.0.5`) must be bumped to those releases before this release is cut.
+
 ## 0.0.4
 
 - Bump the iOS native SDK to **`LinkTrailSDK ~> 0.0.11`** (from `0.0.10`).

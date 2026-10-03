@@ -49,6 +49,9 @@ Links / custom schemes) are forwarded via React Native's `Linking` API — no ex
 // Custom post-install events:
 await LinkTrail.trackEvent('purchase', { value: 59.99, currency: 'USD' });
 
+// Revenue — see "Tracking revenue" below:
+await LinkTrail.trackRevenue({ transactionId: '2000000123456', value: 9.99, currency: 'USD' });
+
 // Cached results:
 const attribution = await LinkTrail.getLastAttribution();
 const lastLink = await LinkTrail.getLastDeepLink();
@@ -62,6 +65,58 @@ LinkTrail.updateConversionValue(42, 'medium');
 `configure` also takes `{ logEnabled, logLevel, requestTimeoutMillis, retryPolicy, linkDomains,
 autoTrackInstall, requireConsent, clickTokenSource, autoHandleLinks }`. Set `autoHandleLinks: false`
 to forward URLs yourself via `LinkTrail.handleDeepLink(url)`.
+
+### Tracking revenue
+
+`trackRevenue` reports an in-app purchase or subscription payment (revenue / ROAS). JS purchase
+libraries don't expose StoreKit/Play Billing objects, so you pass the store's values yourself:
+
+| Field | Value |
+| --- | --- |
+| `transactionId` | The store's unique id for the payment — the **dedupe key**. iOS: StoreKit `transactionId` (use the *transaction* id, not `originalTransactionId`, so each renewal counts). Android: Google Play `orderId` (e.g. `GPA.1234-5678-9012-34567`). 1–255 characters. |
+| `value` | Amount charged, `>= 0` (rounded to 2 decimals). |
+| `currency` | 3-letter ISO 4217 code, case-insensitive (`'usd'` becomes `'USD'`). |
+| `productId` | Optional store product id. |
+
+```ts
+import LinkTrail, { LinkTrailRevenueError } from 'linktrail-react-native';
+
+// react-native-iap — in the purchase listener, for a verified purchase:
+purchaseUpdatedListener(async (purchase) => {
+  await LinkTrail.trackRevenue({
+    transactionId: purchase.transactionId!, // iOS: StoreKit transaction id; Android: Play orderId
+    value: Number(product.price),   // numeric price from your product object
+    currency: product.currency,
+    productId: purchase.productId,
+  }).catch(() => {}); // failures are queued natively and retried
+  await finishTransaction({ purchase, isConsumable: false });
+});
+
+// expo-iap: same shape in its purchase callback (transactionId / orderId, price, currency).
+
+// RevenueCat — in Purchases.addCustomerInfoUpdateListener / after purchasePackage():
+const { transaction, productIdentifier } = await Purchases.purchasePackage(pkg);
+await LinkTrail.trackRevenue({
+  transactionId: transaction.transactionIdentifier, // StoreKit transaction id / Play orderId
+  value: pkg.product.price,
+  currency: pkg.product.currencyCode,
+  productId: productIdentifier,
+});
+```
+
+The snippets are illustrative: check which field your library exposes for the StoreKit transaction id
+and the Play `orderId`, and always send the same id for the same payment.
+
+**Retries are safe.** The server dedupes on `transactionId`, and the native SDK also remembers ids it
+has delivered. Calling `trackRevenue` twice for the same purchase (a retried callback, restored
+purchases, several listeners) never double-counts — the repeat resolves with `duplicate: true`.
+Failed deliveries are queued and retried natively; the returned promise rejects so you can observe the
+first failure. Like `trackEvent`, it honors `requireConsent`.
+
+The promise resolves with `{ id?, attributed, duplicate }`. Invalid input (blank or over-long
+`transactionId`, negative/non-finite `value`, non-3-letter `currency`) rejects with a
+`LinkTrailRevenueError` whose `code` is `invalid_transaction_id`, `invalid_value` or `invalid_currency`;
+nothing is sent. Requires native SDKs that include the revenue API (see the CHANGELOG).
 
 ### Consent gating
 

@@ -33,6 +33,17 @@ export interface Spec extends TurboModule {
   trackEvent(name: string, value?: number, currency?: string): Promise<UnsafeObject>;
 
   /**
+   * Reports an in-app purchase for revenue/ROAS, deduped on `transactionId`.
+   * Resolves with `{ id?, attributed, duplicate }`.
+   */
+  trackRevenue(
+    transactionId: string,
+    value: number,
+    currency: string,
+    productId?: string
+  ): Promise<UnsafeObject>;
+
+  /**
    * Handles an incoming deep-link URL. Resolves with the resolved deep link,
    * or `null` when the URL is not a LinkTrail link.
    */

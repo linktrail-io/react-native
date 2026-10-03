@@ -102,6 +102,34 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  override fun trackRevenue(
+    transactionId: String,
+    value: Double,
+    currency: String,
+    productId: String?,
+    promise: Promise
+  ) {
+    val sdk = requireSdk(promise) ?: return
+    scope.launch {
+      try {
+        val result = sdk.trackRevenueAsync(transactionId, value, currency, productId)
+        promise.resolve(
+          Arguments.createMap().apply {
+            result.id?.let { putInt("id", it) }
+            putBoolean("attributed", result.attributed)
+            putBoolean("duplicate", result.duplicate)
+          }
+        )
+      } catch (e: IllegalArgumentException) {
+        // trackRevenueAsync rejects invalid input this way. The JS layer
+        // validates first, so this is only a backstop against rule drift.
+        promise.reject("invalid_revenue", e.message, e)
+      } catch (t: Throwable) {
+        promise.reject(errorCode(t), t.message, t)
+      }
+    }
+  }
+
   // ── Deep linking ───────────────────────────────────────────────────────────
 
   override fun handleDeepLink(url: String, promise: Promise) {
