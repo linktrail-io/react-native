@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Behavior change (Android):** `requestTrackingAuthorization()` now resolves `true` instead of
+  `false`. Android has no App Tracking Transparency, so the platform never restricts tracking;
+  this matches the Flutter SDK. It is not user consent — keep using `setConsent` /
+  `requireConsent`. iOS is unchanged.
+- Add a Jest test suite (`npm test`) covering the JS/TS layer with a mocked native module.
+
 ## 0.0.4
 
 - Bump the iOS native SDK to **`LinkTrailSDK ~> 0.0.11`** (from `0.0.10`).
