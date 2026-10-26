@@ -1,0 +1,14 @@
+# Offline (no key, no backend): the consent gate shows on first launch, Deny is applied and
+# persisted, and a relaunch does not ask again. onLink never fires.
+appId: io.linktrail.example
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
+- tapOn: { id: "consent-deny" }
+- tapOn: { id: "consent-continue" }
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: denied" }, timeout: 10000 }
+- assertVisible: { id: "e2e-link-count", text: "onLink: 0" }
+- stopApp
+- launchApp
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: denied" }, timeout: 30000 }
+- assertNotVisible: "Allow tracking?"

@@ -1,0 +1,228 @@
+name: E2E
+
+# Maestro smoke e2e for the React Native wrapper, on the example app built from the local wrapper
+# source (see TESTING.md):
+#   native-versions  pinned native SDK versions vs the latest published (report-only for now)
+#   android          ubuntu + KVM emulator (API 35)
+#   ios              self-hosted Mac simulator, serialised by e2e/sim-lock.sh
+#
+# Secrets: LINKTRAIL_KEY (workspace SDK key) and E2E_TOKEN (X-E2E-Token for the private backend
+# check). Without both, only the offline flows run and the real ones are skipped with a notice.
+# Pull requests from forks get no secrets, and never run on the self-hosted Mac.
+# Variables (optional):
+#   E2E_ANDROID_DEFERRED   'true' once the pinned io.linktrail:sdk has the debug fake referrer
+#   NATIVE_VERSION_STRICT  'true' to fail the version check on drift
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  native-versions:
+    name: Native SDK versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare pinned native SDKs with the latest published
+        env:
+          STRICT: ${{ vars.NATIVE_VERSION_STRICT == 'true' && '1' || '0' }}
+        run: bash e2e/check-native-versions.sh
+
+  android:
+    name: Android e2e (Maestro)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      API_LEVEL: 35
+      HAVE_SECRETS: ${{ secrets.LINKTRAIL_KEY != '' && secrets.E2E_TOKEN != '' }}
+    steps:
+      - name: Secrets notice
+        if: env.HAVE_SECRETS != 'true'
+        run: echo "::notice title=e2e::LINKTRAIL_KEY / E2E_TOKEN not available — only the offline flows run."
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The API 35 AVD needs ~7.4 GB; drop toolchains this job never uses (the NDK stays: the
+      # New Architecture app build needs it).
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/powershell /usr/share/swift /opt/az \
+            /usr/local/share/chromium
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          df -h /
+
+      - name: Install dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          cd example && npm install --no-audit --no-fund
+
+      - name: Build the example APK
+        env:
+          LINKTRAIL_KEY: ${{ secrets.LINKTRAIL_KEY }}
+          E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
+          BUILD_ONLY: '1'
+        run: bash e2e/android.sh
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Maestro
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.API_LEVEL }}-google_apis-x86_64-v1
+
+      - name: Create AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: google_apis
+          arch: x86_64
+          cores: 4
+          ram-size: 4096M
+          disk-size: 6000M
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          emulator-boot-timeout: 900
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: E2E — Maestro
+        timeout-minutes: 30
+        env:
+          LINKTRAIL_KEY: ${{ secrets.LINKTRAIL_KEY }}
+          E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
+          SKIP_BUILD: '1'
+          E2E_ANDROID_DEFERRED: ${{ vars.E2E_ANDROID_DEFERRED == 'true' && '1' || '0' }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: google_apis
+          arch: x86_64
+          cores: 4
+          ram-size: 4096M
+          disk-size: 6000M
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot-save -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: sleep 45 && bash e2e/android.sh
+
+      - name: Upload Maestro debug output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-android
+          path: ~/.maestro/tests/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  ios:
+    name: iOS e2e (Maestro)
+    # Fork code never runs on the self-hosted Mac.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS]
+    timeout-minutes: 120
+    env:
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+      HAVE_SECRETS: ${{ secrets.LINKTRAIL_KEY != '' && secrets.E2E_TOKEN != '' }}
+    steps:
+      - name: Secrets notice
+        if: env.HAVE_SECRETS != 'true'
+        run: echo "::notice title=e2e::LINKTRAIL_KEY / E2E_TOKEN not available — only the offline flows run."
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+          npm ci --no-audit --no-fund
+          cd example && npm install --no-audit --no-fund && bundle install
+
+      # The build runs outside the lock; only the simulator part is serialised.
+      - name: Build the example app
+        env:
+          LINKTRAIL_KEY: ${{ secrets.LINKTRAIL_KEY }}
+          E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+          BUILD_ONLY=1 bash e2e/ios.sh
+
+      - name: Wait for the simulator lock
+        run: |
+          set -euo pipefail
+          pid="$(bash e2e/sim-lock.sh acquire)"
+          echo "E2E_LOCK_PID=$pid" >> "$GITHUB_ENV"
+
+      - name: Boot a simulator
+        run: |
+          set -euo pipefail
+          UDID="$(xcrun simctl list devices available | grep 'iPhone ' \
+                 | grep -oiE '[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}' | head -1)"
+          [ -n "$UDID" ] || { echo "::error::no iPhone simulator available"; exit 1; }
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" >/dev/null 2>&1 || true
+          xcrun simctl bootstatus "$UDID" -b >/dev/null 2>&1 || true
+
+      - name: E2E — Maestro
+        timeout-minutes: 45
+        env:
+          LINKTRAIL_KEY: ${{ secrets.LINKTRAIL_KEY }}
+          E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
+          SKIP_BUILD: '1'
+        run: DEVICE="$SIM_UDID" bash e2e/ios.sh
+
+      - name: Upload Maestro debug output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-ios
+          path: ~/.maestro/tests/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Shut the simulator down
+        if: always()
+        run: '[ -n "${SIM_UDID:-}" ] && xcrun simctl shutdown "$SIM_UDID" || true'
+
+      - name: Release the simulator lock
+        if: always()
+        run: bash e2e/sim-lock.sh release "${E2E_LOCK_PID:-}"

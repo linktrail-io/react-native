@@ -1,0 +1,16 @@
+# Safari half of the iOS deferred flows (run by e2e/ios.sh before deferred_allow / deferred_deny):
+# open $LINK_URL; the LinkTrail interstitial makes a real click and stages lt_click=<token> on the
+# clipboard. The script then reads the token off the simulator pasteboard for the backend check.
+appId: com.apple.mobilesafari
+---
+- stopApp
+- launchApp
+- tapOn: { id: "TabBarItemTitle" }
+- inputText: ${LINK_URL}
+- pressKey: Enter
+# The subdomain host stages the token on page load and redirects to the App Store, so the CTA and
+# the "address is invalid" alert are optional.
+- extendedWaitUntil: { visible: { text: "Continue to( the)? App Store" }, timeout: 10000, optional: true }
+- tapOn: { text: "Continue to( the)? App Store", optional: true }
+- tapOn: { text: "OK", optional: true }
+- pressKey: Home
