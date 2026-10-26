@@ -31,6 +31,13 @@ export interface NativeProps extends ViewProps {
     'capsule'
   >;
 
+  /**
+   * How a tap affects tracking consent (maps to the native `grantsConsent: Bool?`):
+   * `'undecided'` (default, native `nil`) grants only while consent is undecided,
+   * `'always'` (`true`) always grants, `'never'` (`false`) never touches consent.
+   */
+  grantsConsent?: WithDefault<'undecided' | 'always' | 'never', 'undecided'>;
+
   /** Label/icon color (maps to `baseForegroundColor`). */
   foregroundColor?: ColorValue;
 

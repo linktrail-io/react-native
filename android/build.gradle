@@ -25,6 +25,8 @@ if (!isNewArchitectureEnabled()) {
   )
 }
 
+def packageJson = new groovy.json.JsonSlurper().parse(file("../package.json"))
+
 apply plugin: "com.android.library"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
@@ -34,7 +36,15 @@ android {
 
   compileSdkVersion getExtOrDefault("compileSdkVersion", 35)
 
+  buildFeatures {
+    buildConfig true
+  }
+
   defaultConfig {
+    // The wrapper version sent in the `X-LinkTrail-SDK: react-native/<version>` header,
+    // read from package.json at build time.
+    buildConfigField "String", "LINKTRAIL_RN_VERSION", "\"${packageJson.version}\""
+
     // The LinkTrail Android SDK requires API 26+.
     minSdkVersion getExtOrDefault("minSdkVersion", 26)
     targetSdkVersion getExtOrDefault("targetSdkVersion", 35)
@@ -69,6 +79,6 @@ repositories {
 
 dependencies {
   implementation "com.facebook.react:react-android"
-  implementation "io.linktrail:sdk:0.0.5"
+  implementation "io.linktrail:sdk:0.1.0"
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
 }

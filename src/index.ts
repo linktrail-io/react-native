@@ -46,7 +46,12 @@ export const LinkTrail = {
    * app launch, before any other LinkTrail API. The install is tracked
    * automatically unless `options.autoTrackInstall` is `false`.
    *
-   * Rejects with code `missing_api_key` when the key is blank.
+   * Rejects with code `missing_api_key` when the key is blank. Calling it again
+   * with the same key and options is a no-op; different options replace the
+   * native instance.
+   *
+   * Custom link domains must be listed in `options.linkDomains`; other URLs are
+   * ignored by `handleDeepLink`.
    */
   async configure(apiKey: string, options: LinkTrailOptions = {}): Promise<void> {
     const { autoHandleLinks = true, ...nativeOptions } = options;
@@ -143,7 +148,9 @@ export const LinkTrail = {
 
   /**
    * Forwards an incoming URL to the SDK. Resolves with the resolved deep link,
-   * or `null` when the URL is not a LinkTrail link. You only need this when
+   * or `null` when the URL is not a LinkTrail link (not `https` on `linktrail.io`
+   * or a `linkDomains` host): those make no network call and fire no `onError`.
+   * You only need this when
    * `autoHandleLinks` is `false`; routing normally happens via `onLink`.
    */
   handleDeepLink(url: string): Promise<LinkTrailDeepLink | null> {
