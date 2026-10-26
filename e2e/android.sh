@@ -26,7 +26,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=e2e/lib.sh
 source "$ROOT/e2e/lib.sh"
 
-APP_ID="io.linktrail.example"
+APP_ID="io.linktrail.demo.store"
 FLOW_DIR="$ROOT/e2e/flows/android"
 APK="$ROOT/example/android/app/build/outputs/apk/debug/app-debug.apk"
 CLICK_WAIT="${CLICK_WAIT:-60}"

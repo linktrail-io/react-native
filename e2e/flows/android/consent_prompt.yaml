@@ -1,6 +1,6 @@
 # Offline (no key, no backend): the consent gate shows on first launch, Deny is applied and
 # persisted, and a relaunch does not ask again. onLink never fires.
-appId: io.linktrail.example
+appId: io.linktrail.demo.store
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }

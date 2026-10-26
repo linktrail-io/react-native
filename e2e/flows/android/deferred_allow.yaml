@@ -1,7 +1,7 @@
 # Deferred · consent ALLOW (real). Before this flow e2e/android.sh makes a real click on $LINK_URL,
 # stages its lt_click token through the fake Play referrer (setprop debug.linktrail.referrer) and
 # installs the app fresh. Afterwards it checks the backend recorded 1 attributed click_token install.
-appId: io.linktrail.example
+appId: io.linktrail.demo.store
 ---
 - launchApp
 - extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }

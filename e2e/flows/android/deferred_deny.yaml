@@ -1,7 +1,7 @@
 # Deferred · consent DENY (real). Same staging as deferred_allow. Consent gates what is recorded,
 # not routing: the link still routes once, and afterwards e2e/android.sh checks the backend
 # recorded no install for this click.
-appId: io.linktrail.example
+appId: io.linktrail.demo.store
 ---
 - launchApp
 - extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }

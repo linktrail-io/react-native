@@ -1,6 +1,6 @@
 # Re-engagement (real): the app is installed and running; an https App Link for $LINK_URL opens it
 # (e2e/android.sh approves the host for the app first) and onLink fires once as a re-engagement.
-appId: io.linktrail.example
+appId: io.linktrail.demo.store
 ---
 - launchApp
 - extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }

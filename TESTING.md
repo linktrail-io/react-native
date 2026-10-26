@@ -13,6 +13,10 @@ the wrapper from source (`"linktrail-react-native": "file:.."`) and the native S
 (`LinkTrailSDK` from CocoaPods, `io.linktrail:sdk` from Maven Central). It runs on pull requests
 and on manual dispatch.
 
+App ids: Android `io.linktrail.demo.store` (the `applicationId`; the Kotlin namespace stays
+`com.kickflip`), iOS `io.linktrail.kickflipdemo`. Both must be in the backend's
+`E2E_APP_IDENTIFIERS` for the verify check.
+
 | Flow | Android | iOS | Needs secrets |
 | --- | --- | --- | --- |
 | `consent_prompt` | consent gate shows; Deny persists across a relaunch | gate shows; Skip stays undecided; a grant persists | no |
