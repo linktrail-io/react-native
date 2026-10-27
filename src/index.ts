@@ -172,7 +172,9 @@ export const LinkTrail = {
   /**
    * iOS: requests App Tracking Transparency authorization (for apps using
    * SKAdNetwork) and resolves with whether tracking was granted.
-   * Android: resolves `false`.
+   * Android: not applicable (there is no ATT equivalent) — resolves `true`,
+   * meaning the platform does not restrict tracking. This is not the user's
+   * consent: use `setConsent` / `requireConsent` for that.
    */
   requestTrackingAuthorization(): Promise<boolean> {
     return NativeLinkTrail.requestTrackingAuthorization();

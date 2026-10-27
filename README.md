@@ -53,7 +53,9 @@ await LinkTrail.trackEvent('purchase', { value: 59.99, currency: 'USD' });
 const attribution = await LinkTrail.getLastAttribution();
 const lastLink = await LinkTrail.getLastDeepLink();
  
-// iOS ATT / SKAdNetwork (no-ops on Android):
+// iOS ATT / SKAdNetwork. On Android there is no ATT: requestTrackingAuthorization()
+// is not applicable and resolves `true` (the OS does not restrict tracking); the
+// SKAdNetwork calls are no-ops.
 await LinkTrail.requestTrackingAuthorization();
 LinkTrail.registerForSKAdAttribution();
 LinkTrail.updateConversionValue(42, 'medium');
