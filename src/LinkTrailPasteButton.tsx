@@ -12,6 +12,16 @@ export interface LinkTrailPasteButtonProps extends ViewProps {
   displayMode?: 'iconAndLabel' | 'iconOnly' | 'labelOnly';
   /** Corner rounding. Default `'capsule'`. */
   cornerStyle?: 'dynamic' | 'fixed' | 'capsule' | 'large' | 'medium' | 'small';
+  /**
+   * Whether the tap also records tracking consent (iOS).
+   * - omitted (default): grants consent **only while it is still undecided**; a
+   *   user who already called `setConsent(false)` stays denied (the token is
+   *   still used for routing).
+   * - `true`: the tap always grants consent, overriding an earlier denial. Use
+   *   only when your UI makes the tap an explicit opt-in.
+   * - `false`: the tap never touches consent (collect it yourself).
+   */
+  grantsConsent?: boolean;
   /** Label/icon color. */
   foregroundColor?: ColorValue;
   /** Button fill color. */
@@ -29,12 +39,20 @@ export interface LinkTrailPasteButtonProps extends ViewProps {
  */
 export function LinkTrailPasteButton({
   onTokenPasted,
+  grantsConsent,
   ...nativeProps
 }: LinkTrailPasteButtonProps) {
   if (Platform.OS !== 'ios') return null;
   return (
     <LinkTrailPasteButtonNative
       {...nativeProps}
+      grantsConsent={
+        grantsConsent === undefined
+          ? 'undecided'
+          : grantsConsent
+            ? 'always'
+            : 'never'
+      }
       onTokenPasted={
         onTokenPasted
           ? (event) => onTokenPasted(event.nativeEvent.token)

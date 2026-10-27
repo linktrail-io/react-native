@@ -12,6 +12,7 @@ import io.linktrail.LinkTrailError
 import io.linktrail.LinkTrailLogLevel
 import io.linktrail.LinkTrailOptions
 import io.linktrail.LinkTrailRetryPolicy
+import io.linktrail.internal.LinkTrailWrapper
 import io.linktrail.model.LinkTrailAttribution
 import io.linktrail.model.LinkTrailDeepLink
 import io.linktrail.model.LinkTrailLinkSource
@@ -34,6 +35,9 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
   // ── Configuration ──────────────────────────────────────────────────────────
 
   override fun configure(apiKey: String, options: ReadableMap?, promise: Promise) {
+    // Before configure, so the very first request already reports the wrapper:
+    // `X-LinkTrail-SDK: react-native/<package.json version>`.
+    LinkTrailWrapper.setPlatform("react-native", BuildConfig.LINKTRAIL_RN_VERSION)
     try {
       val sdk = LinkTrail.configure(reactApplicationContext, apiKey, parseOptions(options))
       sdk.onAttribution { attribution -> emitOnAttribution(attributionToMap(attribution)) }
