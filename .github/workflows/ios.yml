@@ -8,7 +8,10 @@ on:
 jobs:
   ios:
     name: Build example (iOS simulator)
-    runs-on: macos-15
+    # Public repo: fork pull_request runs never reach the self-hosted Macs (fork-PR approval is on too).
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+    # Every job runs on the org's self-hosted Mac minis (no GitHub-hosted minutes).
+    runs-on: [self-hosted, macOS]
     steps:
       - uses: actions/checkout@v4
 
@@ -17,12 +20,18 @@ jobs:
           node-version: 20
           cache: npm
 
+      # ruby/setup-ruby's prebuilt Rubies only install on GitHub-hosted images. scripts/ci/ruby.sh uses
+      # Homebrew's Ruby with every gem in RUNNER_TEMP (nothing global); bundler then installs the
+      # Gemfile's CocoaPods there.
       - name: Set up Ruby + CocoaPods (bundler)
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3'
-          bundler-cache: true
-          working-directory: example
+        run: bash scripts/ci/ruby.sh
+
+      - name: Install CocoaPods (bundler)
+        working-directory: example
+        env:
+          LANG: en_US.UTF-8
+          LC_ALL: en_US.UTF-8
+        run: bundle install --jobs 4 --retry 3
 
       - name: Show Xcode version
         run: xcodebuild -version
@@ -57,6 +66,7 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             -quiet \
             build

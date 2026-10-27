@@ -8,7 +8,10 @@ on:
 jobs:
   library:
     name: Lint · Typecheck · Build · Codegen
-    runs-on: ubuntu-latest
+    # Public repo: fork pull_request runs never reach the self-hosted Macs (fork-PR approval is on too).
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+    # Every job runs on the org's self-hosted Mac minis (no GitHub-hosted minutes).
+    runs-on: [self-hosted, macOS]
     steps:
       - uses: actions/checkout@v4
 
@@ -34,7 +37,9 @@ jobs:
 
   example-android:
     name: Example · JS + Android build
-    runs-on: ubuntu-latest
+    # Public repo: fork pull_request runs never reach the self-hosted Macs (fork-PR approval is on too).
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+    runs-on: [self-hosted, macOS]
     steps:
       - uses: actions/checkout@v4
 
@@ -48,8 +53,17 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # No Actions cache on the self-hosted Macs: ~/.gradle persists there and Gradle locks it for
+      # concurrent builds, while restoring a cache over it from several jobs at once would not be safe.
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: true
+
+      # The SDK packages example/android pins (compileSdk 35, build-tools 35.0.0, NDK 27.1, and the
+      # CMake RN's new-architecture build uses), reused when present. The hosted image had them.
+      - name: Android SDK
+        run: bash scripts/ci/android-sdk.sh platform-tools "platforms;android-35" "build-tools;35.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
 
       - name: Install library dependencies
         run: npm ci
