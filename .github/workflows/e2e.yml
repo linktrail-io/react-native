@@ -149,9 +149,10 @@ jobs:
 
   ios:
     name: iOS e2e (Maestro)
-    # Fork code never runs on the self-hosted Mac.
+    # GitHub-hosted macOS: free and unlimited on this public repo. Same-repo PRs and
+    # manual runs only, because the job uses the repo's e2e secrets.
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, macOS]
+    runs-on: macos-latest
     timeout-minutes: 120
     env:
       LANG: en_US.UTF-8
@@ -163,6 +164,11 @@ jobs:
         run: echo "::notice title=e2e::LINKTRAIL_KEY / E2E_TOKEN not available — only the offline flows run."
 
       - uses: actions/checkout@v4
+
+      - name: Install Maestro
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       - uses: actions/setup-node@v4
         with:
