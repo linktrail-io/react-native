@@ -120,7 +120,7 @@ export function startAttribution(
     // Surface backend failures — most importantly a rejected API key.
     subscriptions.push(
       LinkTrail.onError((error) => {
-        if (error.code === 'invalid_api_key') {
+        if (error.code === 'invalidApiKey') {
           console.warn(
             '⚠️ LinkTrail: API key rejected by the server — check your lt_live_… key.',
           );

@@ -26,7 +26,7 @@ from Maven Central — so there's nothing else to add.
 ## Quick start
 
 ```ts
-import LinkTrail from 'linktrail-react-native';
+import LinkTrail, { LinkTrailError } from 'linktrail-react-native';
 
 // At app launch. The API key is required.
 await LinkTrail.configure('lt_live_…');
@@ -43,6 +43,30 @@ LinkTrail.onError((error) => console.warn(`[LinkTrail] ${error.code}: ${error.me
 The install is tracked automatically by `configure`, and incoming links (Universal Links / App
 Links / custom schemes) are forwarded via React Native's `Linking` API — no extra wiring.
 
+`onLink` can be registered after a splash or login screen: links that arrive before the first
+listener are kept and delivered to it once, in order (later listeners get no replays). A deferred
+link stays saved natively (across launches) until a listener exists; up to 10 re-engagement links
+are buffered in memory. `onAttribution` replays the latest result to its first listener.
+
+### Errors
+
+Every promise rejects with a `LinkTrailError`, and `onError` gets the same fields:
+
+| Field | |
+| --- | --- |
+| `code` | `missingApiKey`, `invalidApiKey`, `notConfigured`, `invalidUrl`, `notALinkTrailUrl`, `transport`, `server`, `decoding`, `emptyResponse`, `invalidArgument`, `unknown` |
+| `message` | The native SDK's message, unchanged |
+| `statusCode`, `body` | `server` errors only (`body` when the server sent one) |
+| `legacyCode` | The pre-0.1.1 snake_case code. Deprecated; removed in the next minor release |
+
+```ts
+try {
+  await LinkTrail.trackEvent('purchase');
+} catch (e) {
+  if (e instanceof LinkTrailError && e.code === 'server') console.warn(e.statusCode, e.body);
+}
+```
+
 ## More
 
 ```ts
@@ -52,8 +76,14 @@ await LinkTrail.trackEvent('purchase', { value: 59.99, currency: 'USD' });
 // Cached results:
 const attribution = await LinkTrail.getLastAttribution();
 const lastLink = await LinkTrail.getLastDeepLink();
+
+// Versions: this package, and the embedded native SDK.
+LinkTrail.version; // "0.1.1"
+LinkTrail.nativeSdkVersion; // e.g. "0.1.0"
  
-// iOS ATT / SKAdNetwork (no-ops on Android):
+// iOS ATT / SKAdNetwork. On Android there is no ATT: requestTrackingAuthorization()
+// is not applicable and resolves `true` (the OS does not restrict tracking); the
+// SKAdNetwork calls are no-ops.
 await LinkTrail.requestTrackingAuthorization();
 LinkTrail.registerForSKAdAttribution();
 LinkTrail.updateConversionValue(42, 'medium');

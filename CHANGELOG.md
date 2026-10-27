@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.1.1
+
+Implements [wrapper parity 0.1.1](https://github.com/linktrail-io/workspace/blob/main/contracts/wrapper-parity-0.1.1.md).
+Native SDKs unchanged: iOS `LinkTrailSDK ~> 0.1.0`, Android `io.linktrail:sdk:0.1.0`.
+
+### Changed
+- **Breaking: error codes are now camelCase**, matching the native `LinkTrailError` cases. Every
+  promise rejects with a `LinkTrailError` whose `message` is the native message unchanged; `server`
+  errors also carry `statusCode` and, if present, `body` (also on `onError` events). For this
+  release the old value is still available as `error.legacyCode`; it will be removed in the next
+  minor release.
+
+  | Before (`code`, now `legacyCode`) | After (`code`) |
+  | --- | --- |
+  | `missing_api_key` | `missingApiKey` |
+  | `invalid_api_key` | `invalidApiKey` |
+  | `not_configured` | `notConfigured` |
+  | `invalid_url` | `invalidUrl` |
+  | `not_a_linktrail_url` | `notALinkTrailUrl` |
+  | `empty_response` | `emptyResponse` |
+  | `invalid_argument` | `invalidArgument` |
+  | `transport`, `server`, `decoding`, `unknown` | unchanged |
+
+- **Links and attribution are no longer lost before a listener exists.** The native `onLink` is
+  registered only when the first JS `onLink` listener subscribes, so a deferred link stays saved
+  natively until JS receives it. Re-engagement links resolved earlier are buffered (max 10, oldest
+  dropped) and delivered once, in order, to the first listener. `onAttribution` keeps the last
+  result and replays it to the first listener. Later listeners get no replays. `onLink` /
+  `onAttribution` now return a JS subscription (still `{ remove() }`).
+- **Behavior change (Android):** `requestTrackingAuthorization()` now resolves `true` instead of
+  `false`. Android has no App Tracking Transparency, so the platform never restricts tracking;
+  this matches the Flutter SDK. It is not user consent — keep using `setConsent` /
+  `requireConsent`. iOS is unchanged.
+
+### Added
+- `LinkTrail.version` (this package's version) and `LinkTrail.nativeSdkVersion` (the embedded
+  native SDK's version).
+- `LinkTrailError` class and `LinkTrailErrorCode` type exports.
+- A Jest test suite (`npm test`) covering the JS/TS layer with a mocked native module.
+
 ## 0.1.0
 
 Adopts the native **0.1.0** SDKs: iOS `LinkTrailSDK ~> 0.1.0` (from `0.0.11`) and Android
