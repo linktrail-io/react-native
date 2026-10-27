@@ -20,7 +20,7 @@ jobs:
   publish:
     name: Build & publish
     # The one job in the org still on a GitHub-hosted runner, on purpose: `npm publish --provenance`
-    # only works on GitHub-hosted runners (npm refuses to sign provenance from a self-hosted one).
+    # only works on GitHub-hosted runners (the npm registry rejects provenance built on a self-hosted one).
     # Moving it means publishing without provenance; that is a product decision, not a CI change.
     runs-on: ubuntu-latest
     steps:
