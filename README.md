@@ -28,9 +28,7 @@ from Maven Central — so there's nothing else to add.
 ```ts
 import LinkTrail from 'linktrail-react-native';
 
-// At app launch. The API key is required.
-await LinkTrail.configure('lt_live_…');
-
+// At app launch. Register the listeners first (see "Deferred link delivery" below).
 // One listener handles both first-launch (deferred) AND re-engagement links:
 LinkTrail.onLink((link, source) => {
   router.navigate(link.path, link.customData); // e.g. "/products/aj1" + { voucher: "SUMMER25" }
@@ -38,10 +36,37 @@ LinkTrail.onLink((link, source) => {
 
 // Observe failures:
 LinkTrail.onError((error) => console.warn(`[LinkTrail] ${error.code}: ${error.message}`));
+
+// The API key is required. If your links use your own domain, list it (required from 0.1.0):
+await LinkTrail.configure('lt_live_…', { linkDomains: ['go.acme.com'] });
 ```
 
-The install is tracked automatically by `configure`, and incoming links (Universal Links / App
-Links / custom schemes) are forwarded via React Native's `Linking` API — no extra wiring.
+`configure` tracks the install automatically (held until the user's consent decision, see
+[Consent gating](#consent-gating)). Incoming links reach the wrapper through React Native's
+`Linking` API, which it forwards to the native SDK for you. On **iOS** that only works once your
+`AppDelegate` passes URLs to `RCTLinkingManager`; see
+[iOS: forward links to React Native](#ios-forward-links-to-react-native).
+
+### `configure` is a singleton
+
+Calling `configure` again with the same key and options is a no-op. A call with a different key or
+different options shuts the previous native instance down (its pending work is cancelled) and
+replaces it. Your JS `onLink` / `onAttribution` / `onError` subscriptions stay valid: the wrapper
+re-registers its native callbacks on every `configure`.
+
+### Deferred link delivery
+
+When the install resolves a deferred link, the native SDK saves it and delivers it to `onLink`
+(`source === 'deferred'`) **at least once**, even on a later launch if the app was killed first. A
+saved link older than **7 days** is dropped. Delivery can repeat, so make your `onLink` handler
+safe to run twice for the same link.
+
+In this version the wrapper does not hold a link for a JS listener that subscribes late. The
+wrapper registers its native `onLink` inside `configure`, so the native SDK counts the link as
+delivered once it reaches the wrapper, and the wrapper passes it only to the JS listeners that are
+subscribed at that moment. So subscribe to `onLink` **before** calling `configure`, not after a
+splash or login screen. If you need to route later, keep the link in your own state until the
+screen is ready.
 
 ## More
 
@@ -63,26 +88,39 @@ LinkTrail.updateConversionValue(42, 'medium');
 autoTrackInstall, requireConsent, clickTokenSource, autoHandleLinks }`. Set `autoHandleLinks: false`
 to forward URLs yourself via `LinkTrail.handleDeepLink(url)`.
 
+For tests and QA builds, `LinkTrail.resetForTesting()` clears the native SDK state (install flag,
+cached attribution, saved deferred link, queued events and device id), so the next launch sends a
+fresh install. Don't call it in production.
+
 ### Consent gating
 
 `requireConsent` (default `true`) gates attribution/tracking behind the user's decision —
-**deny-by-default** for GDPR / ePrivacy. While consent is unset or denied the SDK holds the install
-and drops events, but **deep links still route** (`onLink` fires) so the user reaches their
-destination. The SDK exposes **no consent getter** — your app is the source of truth: persist the
-choice and replay it with `setConsent` on every launch after `configure`.
+**deny-by-default** for GDPR / ePrivacy:
+
+| Decision | What the SDK sends |
+| --- | --- |
+| not made yet | nothing: the install is **held** (persisted across launches) and events are dropped |
+| granted | the install with `consent: true`, counted and attributed; events are sent |
+| denied | **one** install with `consent: false` and no device id, so the deep link still resolves and the user is routed, but nothing is recorded; events are dropped |
+
+Because the deferred link is resolved by that install, it routes **after** the user answers,
+whichever answer it is. `setConsent(false)` always wins, even with `requireConsent: false`. The
+SDK exposes **no consent getter** — your app is the source of truth: persist the choice and replay
+it with `setConsent` on every launch after `configure`.
 
 ```ts
 await LinkTrail.configure('lt_live_…', { requireConsent: true });
 
 // After your consent UI resolves (persist the choice yourself, e.g. AsyncStorage):
-LinkTrail.setConsent(true);   // releases the held install + flushes queued events
-LinkTrail.setConsent(false);  // stops sending + drops the queue
+LinkTrail.setConsent(true);   // sends the held install (consent: true) + flushes queued events
+LinkTrail.setConsent(false);  // sends one consent: false install (routes, records nothing) + drops the queue
 
 // On the next launch, replay the stored decision right after configure:
 LinkTrail.setConsent(storedGranted);
 ```
 
-Set `requireConsent: false` to attribute at init without a consent step. See the example app's
+Set `requireConsent: false` to attribute at init without a consent step (an explicit
+`setConsent(false)` still wins). See the example app's
 [`src/consent.ts`](example/src/consent.ts) for the persist-and-replay pattern.
 
 ### Deferred attribution & the paste button (iOS)
@@ -94,7 +132,9 @@ On iOS, deferred attribution recovers a **click token** the tapped link left on 
   system **"Allow Paste"** alert on first launch.
 - **`'pasteButton'`** (default) — the token is read **only** when the user taps
   `<LinkTrailPasteButton/>` (Apple's `UIPasteControl`), with **no "Allow Paste" alert**. You render
-  the button and set **`autoTrackInstall: false`** so the install waits for the tap.
+  the button and set **`autoTrackInstall: false`** so the install waits for the tap. The tap goes
+  through the native SDK's paste button: it sends the install with the token and, by default, also
+  records consent if the user hasn't decided yet (see `grantsConsent` below).
 - **`'none'`** — the SDK **never touches the clipboard** (no button, no alert); deferred matching
   falls back to probabilistic IP matching only.
 
@@ -116,11 +156,15 @@ await LinkTrail.configure('lt_live_…', {
   fillColor="#111"
   foregroundColor="#FFFFFF"
   onTokenPasted={(token) => {
-    // The SDK already fired the install with this token; onLink routes the
+    // The SDK already sent the install with this token; onLink routes the
     // recovered destination. Use this only for UI side effects.
   }}
 />
 ```
+
+Don't call `trackInstallWithClickToken` from `onTokenPasted`: the tap already sent the install.
+An earlier `setConsent(false)` stands unless you pass `grantsConsent={true}`; after a denial the
+pasted token is still used to route the user (the install goes out with `consent: false`).
 
 **`<LinkTrailPasteButton/>` props** (all optional; plus any `ViewProps` such as `style`):
 
@@ -141,10 +185,90 @@ colors, and size are the full set of what's customizable. For manual control the
 
 ## Deep-link setup
 
-Standard app deep-link config — the wrapper handles the rest. Declare your LinkTrail host as a
-Universal Link (iOS Associated Domains: `applinks:kick.linktrail.io`) and an App Links
-`intent-filter` (Android), plus any custom scheme. LinkTrail infra hosts the
-`apple-app-site-association` / `assetlinks.json` files for your link domains.
+Declare each LinkTrail link host as a Universal Link (iOS Associated Domains:
+`applinks:kick.linktrail.io`) and in an App Links `intent-filter` (Android). LinkTrail hosts the
+`apple-app-site-association` / `assetlinks.json` files for your link domains. Custom URL schemes
+are your own routing: the SDK only claims `https` LinkTrail links.
+
+**Android** — add an `autoVerify` filter to your main activity (`launchMode="singleTask"`, as in
+the React Native template). React Native's `Linking` reads the intent, and the wrapper forwards it:
+
+```xml
+<intent-filter android:autoVerify="true">
+  <action android:name="android.intent.action.VIEW" />
+  <category android:name="android.intent.category.DEFAULT" />
+  <category android:name="android.intent.category.BROWSABLE" />
+  <data android:scheme="https" android:host="kick.linktrail.io" />
+  <data android:scheme="https" android:host="go.acme.com" />
+</intent-filter>
+```
+
+### iOS: forward links to React Native
+
+React Native's `Linking` only sees a URL if your `AppDelegate` hands it to `RCTLinkingManager`.
+Universal Links arrive through `continue userActivity`, so forward **both** methods; without the
+second one, tapping a LinkTrail link opens the app but `onLink` never fires.
+
+Swift `AppDelegate` (React Native 0.77+ template):
+
+```swift
+import React
+
+// Inside your AppDelegate class:
+
+// Custom-scheme URLs.
+func application(
+  _ app: UIApplication,
+  open url: URL,
+  options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+) -> Bool {
+  RCTLinkingManager.application(app, open: url, options: options)
+}
+
+// Universal Links (https://kick.linktrail.io/…).
+func application(
+  _ application: UIApplication,
+  continue userActivity: NSUserActivity,
+  restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+) -> Bool {
+  RCTLinkingManager.application(
+    application,
+    continue: userActivity,
+    restorationHandler: restorationHandler
+  )
+}
+```
+
+Objective-C `AppDelegate.mm` (React Native 0.76 template):
+
+```objc
+#import <React/RCTLinkingManager.h>
+
+// Inside @implementation AppDelegate:
+
+// Custom-scheme URLs.
+- (BOOL)application:(UIApplication *)application
+            openURL:(NSURL *)url
+            options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options
+{
+  return [RCTLinkingManager application:application openURL:url options:options];
+}
+
+// Universal Links (https://kick.linktrail.io/…).
+- (BOOL)application:(UIApplication *)application
+    continueUserActivity:(nonnull NSUserActivity *)userActivity
+      restorationHandler:(nonnull void (^)(NSArray<id<UIUserActivityRestoring>> *_Nullable))restorationHandler
+{
+  return [RCTLinkingManager application:application
+                   continueUserActivity:userActivity
+                     restorationHandler:restorationHandler];
+}
+```
+
+**Expo:** after `npx expo prebuild`, check that the generated `AppDelegate` forwards both methods
+to `RCTLinkingManager`.
+
+### `linkDomains` (required for custom domains from 0.1.0)
 
 **Custom link domains must be listed in `linkDomains`.** The SDK claims only `https` links on
 `linktrail.io` (or a subdomain) or on a `linkDomains` entry (or a subdomain):
@@ -157,6 +281,18 @@ await LinkTrail.configure('lt_live_…', { linkDomains: ['go.acme.com'] });
 `myapp://settings`, a link on an unlisted host) resolves `null`, makes no network call and doesn't
 fire `onError`, so route those yourself. Custom-scheme LinkTrail links (`myapp://slug`) are no
 longer handled; use the `https` link. Links on `*.linktrail.io` need no `linkDomains` entry.
+
+**Upgrading from 0.0.x:** an empty `linkDomains` no longer means "handle every link". If you relied
+on that with your own domain, list it:
+
+```ts
+// 0.0.x: worked with no linkDomains
+await LinkTrail.configure('lt_live_…');
+// 0.1.0: custom domains must be listed
+await LinkTrail.configure('lt_live_…', { linkDomains: ['go.acme.com'] });
+```
+
+See [CHANGELOG.md](CHANGELOG.md) for the full list of 0.1.0 changes.
 
 ### `customData` values
 
