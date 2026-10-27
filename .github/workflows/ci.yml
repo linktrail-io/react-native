@@ -6,68 +6,136 @@ on:
   pull_request:
 
 jobs:
+  # Docs-only pull requests skip the heavy work. The workflow still triggers on every PR, because
+  # its jobs are required status checks and a paths-ignore would leave them pending forever.
+  # Instead this job decides, and the jobs below still run (and report) but skip their heavy
+  # steps, passing in seconds. Only a pull_request run can skip: push, merge_group, schedule,
+  # workflow_dispatch and workflow_call always run in full. So does anything unexpected (git
+  # error, empty diff, this job failing). The patterns live in scripts/docs-only-changes.sh.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.decide.outputs.docs_only }}
+    steps:
+      - name: Checkout
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the diff needs the base branch and the merge base
+
+      - name: Decide whether this is a docs-only change
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -uo pipefail
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "Event '$EVENT': full run."
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # --no-renames: a file moved into docs/ shows as delete + add, so it still counts as code.
+          if ! files="$(git -c core.quotePath=false diff --name-only --no-renames "origin/$BASE_REF...HEAD")"; then
+            echo "::warning::Could not list changed files against origin/$BASE_REF; running everything."
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Changed files:"; printf '%s\n' "$files" | sed 's/^/  /'
+          verdict="$(printf '%s\n' "$files" | bash scripts/docs-only-changes.sh)" || verdict=""
+          [ "$verdict" = "docs_only=true" ] || verdict="docs_only=false"
+          echo "$verdict" >> "$GITHUB_OUTPUT"
+
   library:
     name: Lint · Typecheck · Build · Codegen
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
+      - name: Docs-only change — skipped
+        if: needs.changes.outputs.docs_only == 'true'
+        run: echo "::notice title=library::docs-only change — skipped"
+
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.docs_only != 'true'
 
       - uses: actions/setup-node@v4
+        if: needs.changes.outputs.docs_only != 'true'
         with:
           node-version: 20
           cache: npm
 
       - name: Install dependencies
+        if: needs.changes.outputs.docs_only != 'true'
         run: npm ci
 
       - name: Lint
+        if: needs.changes.outputs.docs_only != 'true'
         run: npm run lint
 
       - name: Typecheck
+        if: needs.changes.outputs.docs_only != 'true'
         run: npm run typecheck
 
       - name: Build package (react-native-builder-bob)
+        if: needs.changes.outputs.docs_only != 'true'
         run: npm run prepare
 
       - name: Validate native codegen spec
+        if: needs.changes.outputs.docs_only != 'true'
         run: node node_modules/react-native/scripts/generate-codegen-artifacts.js -p . -o "${RUNNER_TEMP}/codegen" -t all
 
   example-android:
     name: Example · JS + Android build
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
+      - name: Docs-only change — skipped
+        if: needs.changes.outputs.docs_only == 'true'
+        run: echo "::notice title=example-android::docs-only change — skipped"
+
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.docs_only != 'true'
 
       - uses: actions/setup-node@v4
+        if: needs.changes.outputs.docs_only != 'true'
         with:
           node-version: 20
           cache: npm
 
       - uses: actions/setup-java@v4
+        if: needs.changes.outputs.docs_only != 'true'
         with:
           distribution: temurin
           java-version: 17
 
       - name: Set up Gradle cache
+        if: needs.changes.outputs.docs_only != 'true'
         uses: gradle/actions/setup-gradle@v4
 
       - name: Install library dependencies
+        if: needs.changes.outputs.docs_only != 'true'
         run: npm ci
 
       - name: Install example dependencies
+        if: needs.changes.outputs.docs_only != 'true'
         working-directory: example
         run: npm install --no-audit --no-fund
 
       - name: Typecheck example
+        if: needs.changes.outputs.docs_only != 'true'
         working-directory: example
         run: npx tsc --noEmit
 
       - name: Bundle JS (Android + iOS)
+        if: needs.changes.outputs.docs_only != 'true'
         working-directory: example
         run: |
           npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output "${RUNNER_TEMP}/android.bundle" --assets-dest "${RUNNER_TEMP}/android-assets"
           npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output "${RUNNER_TEMP}/ios.bundle" --assets-dest "${RUNNER_TEMP}/ios-assets"
 
       - name: Build debug APK
+        if: needs.changes.outputs.docs_only != 'true'
         working-directory: example/android
         run: ./gradlew :app:assembleDebug --no-daemon

@@ -6,8 +6,50 @@ on:
   pull_request:
 
 jobs:
+  # Docs-only pull requests skip the heavy work. The workflow still triggers on every PR, because
+  # its jobs are required status checks and a paths-ignore would leave them pending forever.
+  # Instead this job decides, and the jobs below still run (and report) but skip their heavy
+  # steps, passing in seconds. Only a pull_request run can skip: push, merge_group, schedule,
+  # workflow_dispatch and workflow_call always run in full. So does anything unexpected (git
+  # error, empty diff, this job failing). The patterns live in scripts/docs-only-changes.sh.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.decide.outputs.docs_only }}
+    steps:
+      - name: Checkout
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the diff needs the base branch and the merge base
+
+      - name: Decide whether this is a docs-only change
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -uo pipefail
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "Event '$EVENT': full run."
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # --no-renames: a file moved into docs/ shows as delete + add, so it still counts as code.
+          if ! files="$(git -c core.quotePath=false diff --name-only --no-renames "origin/$BASE_REF...HEAD")"; then
+            echo "::warning::Could not list changed files against origin/$BASE_REF; running everything."
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Changed files:"; printf '%s\n' "$files" | sed 's/^/  /'
+          verdict="$(printf '%s\n' "$files" | bash scripts/docs-only-changes.sh)" || verdict=""
+          [ "$verdict" = "docs_only=true" ] || verdict="docs_only=false"
+          echo "$verdict" >> "$GITHUB_OUTPUT"
+
   ios:
     name: Build example (iOS simulator)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
