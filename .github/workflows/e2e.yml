@@ -10,8 +10,7 @@ name: E2E
 # check). Without both, only the offline flows run and the real ones are skipped with a notice.
 # Pull requests from forks get no secrets, and never run on the self-hosted Mac.
 # Variables (optional):
-#   E2E_ANDROID_DEFERRED   'true' once the pinned io.linktrail:sdk has the debug fake referrer
-#   NATIVE_VERSION_STRICT  'true' to fail the version check on drift
+#   NATIVE_VERSION_STRICT  'false' to only warn on native SDK drift (default: fail)
 
 on:
   pull_request:
@@ -32,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compare pinned native SDKs with the latest published
         env:
-          STRICT: ${{ vars.NATIVE_VERSION_STRICT == 'true' && '1' || '0' }}
+          STRICT: ${{ vars.NATIVE_VERSION_STRICT == 'false' && '0' || '1' }}
         run: bash e2e/check-native-versions.sh
 
   android:
@@ -125,7 +124,6 @@ jobs:
           LINKTRAIL_KEY: ${{ secrets.LINKTRAIL_KEY }}
           E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
           SKIP_BUILD: '1'
-          E2E_ANDROID_DEFERRED: ${{ vars.E2E_ANDROID_DEFERRED == 'true' && '1' || '0' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ env.API_LEVEL }}

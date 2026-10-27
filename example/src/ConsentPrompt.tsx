@@ -71,6 +71,9 @@ export function ConsentPrompt({
               cornerStyle="fixed"
               fillColor="#111"
               foregroundColor="#FFFFFF"
+              // The tap sends the install with the token. Allow → it also grants consent;
+              // Deny → it leaves consent alone, and onDecide(false) below records the denial.
+              grantsConsent={granted}
               onTokenPasted={(token) => {
                 onTokenPasted(token);
                 onDecide(granted);

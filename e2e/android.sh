@@ -13,12 +13,11 @@
 #
 # The deferred flows stage the click through the SDK's debug-only fake referrer
 # (adb shell setprop debug.linktrail.referrer "lt_click=<token>"), which needs a debuggable app
-# and an io.linktrail:sdk release that has it (after 0.0.5). Until the wrapper pins such a release,
-# set E2E_ANDROID_DEFERRED=0 to skip them with a notice.
+# (io.linktrail:sdk 0.1.0 or later).
 #
 # Usage: bash e2e/android.sh [flow…]
 # Env:   LINKTRAIL_KEY, E2E_TOKEN (see e2e/lib.sh), RETRIES (3), CLICK_WAIT (60),
-#        E2E_ANDROID_DEFERRED (1), SKIP_BUILD=1 to reuse the last APK, BUILD_ONLY=1 to only
+#        SKIP_BUILD=1 to reuse the last APK, BUILD_ONLY=1 to only
 #        build it (CI builds before booting the emulator).
 set -euo pipefail
 
@@ -30,7 +29,6 @@ APP_ID="io.linktrail.demo.store"
 FLOW_DIR="$ROOT/e2e/flows/android"
 APK="$ROOT/example/android/app/build/outputs/apk/debug/app-debug.apk"
 CLICK_WAIT="${CLICK_WAIT:-60}"
-E2E_ANDROID_DEFERRED="${E2E_ANDROID_DEFERRED:-1}"
 # Android Chrome UA: the redirect sends Android clicks to the Play Store with &referrer=lt_click=<token>.
 ANDROID_UA="Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
 
@@ -117,9 +115,6 @@ for name in "${FLOWS[@]}"; do
   [ -f "$FLOW_DIR/$name.yaml" ] || { echo "ERROR: no flow $FLOW_DIR/$name.yaml"; fail=1; continue; }
   if flow_needs_backend "$name" && [ "$HAVE_SECRETS" != 1 ]; then
     notice "android/$name skipped: LINKTRAIL_KEY and E2E_TOKEN are not set"; continue
-  fi
-  if [[ "$name" == deferred_* ]] && [ "$E2E_ANDROID_DEFERRED" != 1 ]; then
-    notice "android/$name skipped: E2E_ANDROID_DEFERRED=0 (the pinned io.linktrail:sdk has no debug referrer yet)"; continue
   fi
   ok=0
   for attempt in $(seq 1 "$RETRIES"); do

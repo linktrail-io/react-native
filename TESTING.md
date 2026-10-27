@@ -43,8 +43,7 @@ token (`GET /v1/e2e/clicks/<token>`, header `X-E2E-Token`):
 | --- | --- | --- |
 | `LINKTRAIL_KEY` | secret | Workspace SDK key, bundled into the e2e build only |
 | `E2E_TOKEN` | secret | `X-E2E-Token` for the backend check |
-| `E2E_ANDROID_DEFERRED` | variable | `true` once the pinned `io.linktrail:sdk` has the debug fake referrer (after 0.0.5) |
-| `NATIVE_VERSION_STRICT` | variable | `true` to fail the native version check on drift |
+| `NATIVE_VERSION_STRICT` | variable | `false` to only warn on native SDK drift (the CI check fails on drift by default) |
 
 Without both secrets (for example on a pull request from a fork) only `consent_prompt` runs and the
 other flows are skipped with a notice. Fork pull requests never run on the self-hosted Mac.
@@ -84,5 +83,5 @@ On a Mac shared with other simulator jobs, take the lock first:
 
 `e2e/check-native-versions.sh` compares the versions the wrapper pins
 (`LinktrailReactNative.podspec`, `android/build.gradle`) with the latest on CocoaPods trunk and
-Maven Central. It only warns for now; `STRICT=1` (or the `NATIVE_VERSION_STRICT` variable in CI)
-makes a drift fail.
+Maven Central. Locally it only warns unless `STRICT=1`; in CI it fails on drift (set the
+`NATIVE_VERSION_STRICT` variable to `false` to only warn).

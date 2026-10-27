@@ -27,7 +27,8 @@ export function E2EPanel({ consent, onGrantConsent }: Props) {
       });
       e2eRecorder.event(`ok id=${result.id ?? 'none'}`);
     } catch (error) {
-      e2eRecorder.event(`error ${(error as Error).message ?? String(error)}`);
+      const { code, message } = error as { code?: string; message?: string };
+      e2eRecorder.event(`error ${code ?? message ?? String(error)}`);
     }
   };
 
