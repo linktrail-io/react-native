@@ -16,7 +16,12 @@ export interface LinkTrailDeepLink {
   channel?: string;
   /** UTM parameters carried by the link. */
   utm?: Record<string, string>;
-  /** Arbitrary key/value payload configured on the link. */
+  /**
+   * Arbitrary key/value payload configured on the link. Values are always
+   * strings: scalars arrive as text (`42`, `true`), and nested objects or
+   * arrays arrive as compact JSON strings (`'{"a":1}'`) — `JSON.parse` them
+   * if you need the structure. Same on iOS and Android.
+   */
   customData?: Record<string, string>;
   /** The destination path to route to, defaulting to `/` when none is set. */
   path: string;
@@ -79,9 +84,12 @@ export interface LinkTrailOptions {
   /** Retry policy applied to transient network failures. */
   retryPolicy?: LinkTrailRetryPolicy;
   /**
-   * Link hosts the SDK should treat as its own (e.g. `['go.acme.com']`).
-   * When non-empty, `handleDeepLink` ignores URLs on other hosts. Empty =
-   * handle every parseable link.
+   * Your custom link domains (e.g. `['go.acme.com']`). The SDK claims only
+   * `https` links on `linktrail.io` (or a subdomain) or on one of these hosts
+   * (or a subdomain). Any other URL (`mailto:`, OAuth callbacks,
+   * `myapp://settings`) is ignored: `handleDeepLink` resolves `null`, with no
+   * network call and no `onError`. **Custom link domains must be listed here.**
+   * Custom-scheme LinkTrail links (`myapp://slug`) are no longer handled.
    */
   linkDomains?: string[];
   /**

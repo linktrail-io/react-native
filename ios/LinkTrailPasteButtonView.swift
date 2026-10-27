@@ -13,7 +13,7 @@ public final class LinkTrailPasteButtonView: UIView {
   /// Called on the main thread with the raw pasted string after the SDK reads it.
   @objc public var onToken: ((String) -> Void)?
 
-  private var coordinator: PasteCoordinator?
+  private var coordinator: LinkTrailPasteButton.Coordinator?
   private weak var control: UIPasteControl?
 
   // Current appearance (RN props). Defaults mirror the JS/codegen defaults.
@@ -21,6 +21,8 @@ public final class LinkTrailPasteButtonView: UIView {
   private var cornerStyleName = "capsule"
   private var foregroundColor: UIColor?
   private var fillColor: UIColor?
+  /// `"undecided"` (default: grant consent only while undecided), `"always"` or `"never"`.
+  private var grantsConsentName = "undecided"
 
   public override init(frame: CGRect) {
     super.init(frame: frame)
@@ -35,9 +37,11 @@ public final class LinkTrailPasteButtonView: UIView {
     displayMode: String,
     cornerStyle: String,
     foregroundColor: UIColor?,
-    fillColor: UIColor?
+    fillColor: UIColor?,
+    grantsConsent: String
   ) {
     let unchanged =
+      grantsConsent == grantsConsentName &&
       displayMode == displayModeName &&
       cornerStyle == cornerStyleName &&
       foregroundColor == self.foregroundColor &&
@@ -48,13 +52,22 @@ public final class LinkTrailPasteButtonView: UIView {
     cornerStyleName = cornerStyle
     self.foregroundColor = foregroundColor
     self.fillColor = fillColor
+    if grantsConsent != grantsConsentName {
+      grantsConsentName = grantsConsent
+      coordinator = nil // the SDK's coordinator captures grantsConsent at creation
+    }
     rebuild()
   }
 
   private func rebuild() {
     control?.removeFromSuperview()
 
-    let coord = coordinator ?? PasteCoordinator { [weak self] token in self?.onToken?(token) }
+    // The SDK's own paste coordinator: it applies the grantsConsent rule and sends the
+    // install with the click token (the same path as the native LinkTrailPasteButton).
+    let coord = coordinator ?? LinkTrailPasteButton(
+      grantsConsent: Self.grantsConsent(grantsConsentName),
+      onToken: { [weak self] token in self?.onToken?(token) }
+    ).makeCoordinator()
     coordinator = coord
 
     let configuration = UIPasteControl.Configuration()
@@ -95,24 +108,12 @@ public final class LinkTrailPasteButtonView: UIView {
     }
   }
 
-  /// The `UIPasteControl` target: accepts pasted text and forwards it to the SDK.
-  final class PasteCoordinator: UIResponder {
-    private let onToken: (String) -> Void
-
-    init(onToken: @escaping (String) -> Void) {
-      self.onToken = onToken
-      super.init()
-      pasteConfiguration = UIPasteConfiguration(forAccepting: NSString.self)
-    }
-
-    override func paste(itemProviders: [NSItemProvider]) {
-      guard let provider = itemProviders.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else { return }
-      let onToken = self.onToken
-      provider.loadObject(ofClass: NSString.self) { object, _ in
-        guard let string = object as? String else { return }
-        LinkTrailSDK.LinkTrail.shared?.trackInstall(clickToken: string)
-        DispatchQueue.main.async { onToken(string) }
-      }
+  /// `nil` = grant only while undecided (the native default); `true` = always grant; `false` = never.
+  private static func grantsConsent(_ name: String) -> Bool? {
+    switch name {
+    case "always": return true
+    case "never": return false
+    default: return nil
     }
   }
 }

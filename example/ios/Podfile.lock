@@ -37,14 +37,14 @@ PODS:
   - hermes-engine (0.80.3):
     - hermes-engine/Pre-built (= 0.80.3)
   - hermes-engine/Pre-built (0.80.3)
-  - LinktrailReactNative (0.0.4):
+  - LinktrailReactNative (0.1.0):
     - boost
     - DoubleConversion
     - fast_float
     - fmt
     - glog
     - hermes-engine
-    - LinkTrailSDK (~> 0.0.11)
+    - LinkTrailSDK (~> 0.1.0)
     - RCT-Folly
     - RCT-Folly/Fabric
     - RCTRequired
@@ -67,7 +67,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - LinkTrailSDK (0.0.11)
+  - LinkTrailSDK (0.1.0)
   - RCT-Folly (2024.11.18.00):
     - boost
     - DoubleConversion
@@ -2521,8 +2521,8 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: fff23161928673afcd95f63146e651726f68b384
-  LinktrailReactNative: cdb6994035080e1edcb3697dcf8f2e287c5db30c
-  LinkTrailSDK: 53a14d30eb2cd9cbde0d41c3468be80a7a414e5d
+  LinktrailReactNative: 6f4eccc80546fe0cd08fb17d598aac809bb500b6
+  LinkTrailSDK: 622127713ad7b158aae26e2c1a8ad143d74342b2
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: 2ebc9cc0329ede460c5d52956ce5e1ab715c2c2c
   RCTRequired: b83daef658afafdc68d85b97ed082f4497a8ffa4

@@ -126,6 +126,7 @@ await LinkTrail.configure('lt_live_…', {
 
 | Prop | Type | Default | Notes |
 | --- | --- | --- | --- |
+| `grantsConsent` | `boolean` | — (grant only while undecided) | Whether the tap records consent. Omitted: grants only if the user hasn't decided yet, so an earlier `setConsent(false)` stays. `true`: always grants (only for an explicit opt-in UI). `false`: never touches consent. |
 | `onTokenPasted` | `(token: string) => void` | — | Fires after the SDK reads the token. |
 | `displayMode` | `'iconAndLabel' \| 'iconOnly' \| 'labelOnly'` | `'labelOnly'` | What the control shows. |
 | `cornerStyle` | `'dynamic' \| 'fixed' \| 'capsule' \| 'large' \| 'medium' \| 'small'` | `'capsule'` | Corner rounding. |
@@ -145,11 +146,23 @@ Universal Link (iOS Associated Domains: `applinks:kick.linktrail.io`) and an App
 `intent-filter` (Android), plus any custom scheme. LinkTrail infra hosts the
 `apple-app-site-association` / `assetlinks.json` files for your link domains.
 
-**List every link host in `linkDomains`.** When `linkDomains` is non-empty, the SDK routes
-re-engagement opens (app already installed) *only* for those hosts — a link on an unlisted host
-opens the app but never navigates. Deferred (install-time) links skip this check and route
-regardless, so a missing host can look fine on a fresh install yet fail once the app is installed.
-Leave `linkDomains` empty (the default) to handle every parseable link.
+**Custom link domains must be listed in `linkDomains`.** The SDK claims only `https` links on
+`linktrail.io` (or a subdomain) or on a `linkDomains` entry (or a subdomain):
+
+```ts
+await LinkTrail.configure('lt_live_…', { linkDomains: ['go.acme.com'] });
+```
+
+`handleDeepLink` now ignores non-LinkTrail URLs: any other URL (`mailto:`, OAuth callbacks,
+`myapp://settings`, a link on an unlisted host) resolves `null`, makes no network call and doesn't
+fire `onError`, so route those yourself. Custom-scheme LinkTrail links (`myapp://slug`) are no
+longer handled; use the `https` link. Links on `*.linktrail.io` need no `linkDomains` entry.
+
+### `customData` values
+
+`customData` (and `utm`) is always a `Record<string, string>`. Nested values set on the link
+(objects, arrays) arrive as compact JSON strings, e.g. `{ cart: '{"sku":"aj1","qty":2}' }`;
+`JSON.parse` them if you need the structure.
 
 ## Example app
 
