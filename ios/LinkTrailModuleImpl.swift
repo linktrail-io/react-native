@@ -8,7 +8,8 @@ import LinkTrailSDK
 public final class LinkTrailModuleImpl: NSObject {
 
   public typealias Resolve = (Any?) -> Void
-  public typealias Reject = (String, String) -> Void
+  /// `(code, message, userInfo)`; `userInfo` carries `statusCode`/`body` for `server` errors.
+  public typealias Reject = (String, String, NSDictionary?) -> Void
 
   /// Event sinks wired up by the ObjC++ module to the codegen emitters.
   @objc public var onLink: ((NSDictionary) -> Void)?
@@ -30,21 +31,39 @@ public final class LinkTrailModuleImpl: NSObject {
       sdk.onAttribution { [weak self] attribution in
         self?.onAttribution?(Self.attributionDict(attribution))
       }
-      sdk.onLink { [weak self] link, source in
-        self?.onLink?([
-          "link": Self.deepLinkDict(link),
-          "source": Self.sourceName(source),
-        ])
-      }
+      // Native `onLink` is registered only once a JS listener exists (startLinkDelivery), so a
+      // saved deferred link stays saved natively until JS can actually receive it.
+      if linkDeliveryStarted { registerOnLink(sdk) }
       sdk.onError { [weak self] error in
-        self?.onError?([
-          "code": Self.errorCode(error),
-          "message": error.localizedDescription,
-        ])
+        self?.onError?(Self.errorPayload(error) as NSDictionary)
       }
       resolve(nil)
     } catch {
-      reject(Self.errorCode(error), error.localizedDescription)
+      Self.reject(reject, error)
+    }
+  }
+
+  /// Called by JS when the first `onLink` listener subscribes. Registers the native `onLink`
+  /// now (and on every later `configure`), so the native SDK hands over its saved deferred link
+  /// only when there is a JS listener to receive it.
+  @objc public func startLinkDelivery() {
+    linkDeliveryStarted = true
+    if let sdk { registerOnLink(sdk) }
+  }
+
+  /// The embedded native LinkTrail iOS SDK version, e.g. `"0.1.0"`.
+  @objc public func nativeSdkVersion() -> String {
+    LinkTrailSDK.LinkTrail.version
+  }
+
+  private var linkDeliveryStarted = false
+
+  private func registerOnLink(_ sdk: LinkTrailSDK.LinkTrail) {
+    sdk.onLink { [weak self] link, source in
+      self?.onLink?([
+        "link": Self.deepLinkDict(link),
+        "source": Self.sourceName(source),
+      ])
     }
   }
 
@@ -60,7 +79,7 @@ public final class LinkTrailModuleImpl: NSObject {
       do {
         resolve(Self.attributionDict(try await sdk.trackInstall(force: force)))
       } catch {
-        reject(Self.errorCode(error), error.localizedDescription)
+        Self.reject(reject, error)
       }
     }
   }
@@ -76,7 +95,7 @@ public final class LinkTrailModuleImpl: NSObject {
       do {
         resolve(Self.attributionDict(try await sdk.trackInstall(clickToken: clickToken, force: force)))
       } catch {
-        reject(Self.errorCode(error), error.localizedDescription)
+        Self.reject(reject, error)
       }
     }
   }
@@ -96,7 +115,7 @@ public final class LinkTrailModuleImpl: NSObject {
         if let id = result.id { dict["id"] = id }
         resolve(dict)
       } catch {
-        reject(Self.errorCode(error), error.localizedDescription)
+        Self.reject(reject, error)
       }
     }
   }
@@ -119,7 +138,7 @@ public final class LinkTrailModuleImpl: NSObject {
       } catch LinkTrailError.notALinkTrailURL {
         resolve(nil)
       } catch {
-        reject(Self.errorCode(error), error.localizedDescription)
+        Self.reject(reject, error)
       }
     }
   }
@@ -169,7 +188,7 @@ public final class LinkTrailModuleImpl: NSObject {
 
   private func requireSDK(_ reject: Reject) -> LinkTrailSDK.LinkTrail? {
     guard let sdk else {
-      reject("not_configured", "LinkTrail is not configured. Call LinkTrail.configure(apiKey) first.")
+      reject("notConfigured", "LinkTrail is not configured. Call LinkTrail.configure(apiKey) first.", nil)
       return nil
     }
     return sdk
@@ -254,18 +273,41 @@ public final class LinkTrailModuleImpl: NSObject {
     return dict as NSDictionary
   }
 
-  private static func errorCode(_ error: Error) -> String {
+  /// camelCase codes matching the native `LinkTrailError` case names (wrapper-parity 0.1.1).
+  static func errorCode(_ error: Error) -> String {
     guard let error = error as? LinkTrailError else { return "unknown" }
     switch error {
-    case .invalidURL: return "invalid_url"
+    case .invalidURL: return "invalidUrl"
     case .transport: return "transport"
     case .server: return "server"
     case .decoding: return "decoding"
-    case .emptyResponse: return "empty_response"
-    case .notALinkTrailURL: return "not_a_linktrail_url"
-    case .missingAPIKey: return "missing_api_key"
-    case .invalidAPIKey: return "invalid_api_key"
+    case .emptyResponse: return "emptyResponse"
+    case .notALinkTrailURL: return "notALinkTrailUrl"
+    case .missingAPIKey: return "missingApiKey"
+    case .invalidAPIKey: return "invalidApiKey"
     @unknown default: return "unknown"
     }
+  }
+
+  /// `code`, the native message unchanged, and `statusCode`/`body` for `server` errors.
+  static func errorPayload(_ error: Error) -> [String: Any] {
+    var payload: [String: Any] = [
+      "code": errorCode(error),
+      "message": error.localizedDescription,
+    ]
+    payload.merge(errorUserInfo(error)) { _, new in new }
+    return payload
+  }
+
+  static func errorUserInfo(_ error: Error) -> [String: Any] {
+    guard case let LinkTrailError.server(statusCode, body)? = error as? LinkTrailError else { return [:] }
+    var info: [String: Any] = ["statusCode": statusCode]
+    if let body { info["body"] = body }
+    return info
+  }
+
+  private static func reject(_ reject: Reject, _ error: Error) {
+    let info = errorUserInfo(error)
+    reject(errorCode(error), error.localizedDescription, info.isEmpty ? nil : info as NSDictionary)
   }
 }

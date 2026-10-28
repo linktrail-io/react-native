@@ -16,7 +16,7 @@ import type {
 export interface Spec extends TurboModule {
   /**
    * Configures the native SDK. Resolves once configured; rejects with
-   * `missing_api_key` when the key is blank.
+   * `missingApiKey` when the key is blank.
    */
   configure(apiKey: string, options?: UnsafeObject): Promise<void>;
 
@@ -44,7 +44,7 @@ export interface Spec extends TurboModule {
   /** The most recent resolved deep link from the current session, or null. */
   getLastDeepLink(): Promise<UnsafeObject>;
 
-  /** iOS: requests ATT authorization. Android: resolves `false`. */
+  /** iOS: requests ATT authorization. Android: no ATT, resolves `true` (not restricted). */
   requestTrackingAuthorization(): Promise<boolean>;
 
   /** iOS: registers for SKAdNetwork attribution. Android: no-op. */
@@ -55,6 +55,16 @@ export interface Spec extends TurboModule {
 
   /** Grants/revokes tracking consent (only meaningful with `requireConsent`). */
   setConsent(granted: boolean): void;
+
+  /**
+   * Registers the native `onLink` callback. Called by the JS layer when the first
+   * `onLink` listener subscribes, so the native SDK keeps a saved deferred link
+   * until JS can receive it.
+   */
+  startLinkDelivery(): void;
+
+  /** The embedded native LinkTrail SDK version, e.g. `"0.1.0"`. */
+  nativeSdkVersion(): string;
 
   /** Clears the install flag, cached attribution, queued events, device id. */
   resetForTesting(): void;

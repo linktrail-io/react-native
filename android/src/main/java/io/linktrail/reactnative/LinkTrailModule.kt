@@ -41,25 +41,50 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
     try {
       val sdk = LinkTrail.configure(reactApplicationContext, apiKey, parseOptions(options))
       sdk.onAttribution { attribution -> emitOnAttribution(attributionToMap(attribution)) }
-      sdk.onLink { link, source ->
-        emitOnLink(
-          Arguments.createMap().apply {
-            putMap("link", deepLinkToMap(link))
-            putString("source", sourceName(source))
-          }
-        )
-      }
+      // Native onLink is registered only once a JS listener exists (startLinkDelivery), so a
+      // saved deferred link stays saved natively until JS can actually receive it.
+      if (linkDeliveryStarted) registerOnLink(sdk)
       sdk.onError { error ->
         emitOnError(
           Arguments.createMap().apply {
             putString("code", errorCode(error))
             putString("message", error.message ?: "Unknown error")
+            (error as? LinkTrailError.Server)?.let {
+              putInt("statusCode", it.statusCode)
+              it.body?.let { body -> putString("body", body) }
+            }
           }
         )
       }
       promise.resolve(null)
     } catch (t: Throwable) {
-      promise.reject(errorCode(t), t.message, t)
+      reject(promise, t)
+    }
+  }
+
+  @Volatile private var linkDeliveryStarted = false
+
+  /**
+   * Called by JS when the first `onLink` listener subscribes. Registers the native onLink now (and
+   * on every later configure), so the native SDK hands over its saved deferred link only when there
+   * is a JS listener to receive it.
+   */
+  override fun startLinkDelivery() {
+    linkDeliveryStarted = true
+    LinkTrail.shared?.let(::registerOnLink)
+  }
+
+  /** The embedded native LinkTrail Android SDK version, e.g. `"0.1.0"`. */
+  override fun nativeSdkVersion(): String = LinkTrail.VERSION
+
+  private fun registerOnLink(sdk: LinkTrail) {
+    sdk.onLink { link, source ->
+      emitOnLink(
+        Arguments.createMap().apply {
+          putMap("link", deepLinkToMap(link))
+          putString("source", sourceName(source))
+        }
+      )
     }
   }
 
@@ -71,7 +96,7 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
       try {
         promise.resolve(attributionToMap(sdk.trackInstallAsync(force)))
       } catch (t: Throwable) {
-        promise.reject(errorCode(t), t.message, t)
+        reject(promise, t)
       }
     }
   }
@@ -84,7 +109,7 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
       try {
         promise.resolve(attributionToMap(sdk.trackInstallAsync(force)))
       } catch (t: Throwable) {
-        promise.reject(errorCode(t), t.message, t)
+        reject(promise, t)
       }
     }
   }
@@ -101,7 +126,7 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
           }
         )
       } catch (t: Throwable) {
-        promise.reject(errorCode(t), t.message, t)
+        reject(promise, t)
       }
     }
   }
@@ -116,7 +141,7 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
       } catch (e: LinkTrailError.NotALinkTrailUrl) {
         promise.resolve(null)
       } catch (t: Throwable) {
-        promise.reject(errorCode(t), t.message, t)
+        reject(promise, t)
       }
     }
   }
@@ -131,8 +156,11 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
 
   // ── iOS-only APIs (no-ops on Android) ──────────────────────────────────────
 
+  // Android has no App Tracking Transparency: no OS gate restricts tracking, so
+  // report "not restricted" (true), matching the Flutter SDK. App-level consent is
+  // separate — see setConsent.
   override fun requestTrackingAuthorization(promise: Promise) {
-    promise.resolve(false)
+    promise.resolve(true)
   }
 
   override fun registerForSKAdAttribution() = Unit
@@ -157,7 +185,7 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
     val sdk = LinkTrail.shared
     if (sdk == null) {
       promise.reject(
-        "not_configured",
+        "notConfigured",
         "LinkTrail is not configured. Call LinkTrail.configure(apiKey) first."
       )
     }
@@ -238,16 +266,31 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
       values.forEach { (key, value) -> putString(key, value) }
     }
 
+  /** camelCase codes matching the native `LinkTrailError` case names (wrapper-parity 0.1.1). */
   private fun errorCode(error: Throwable): String = when (error) {
-    is LinkTrailError.MissingApiKey -> "missing_api_key"
-    is LinkTrailError.InvalidApiKey -> "invalid_api_key"
+    is LinkTrailError.MissingApiKey -> "missingApiKey"
+    is LinkTrailError.InvalidApiKey -> "invalidApiKey"
     is LinkTrailError.Transport -> "transport"
     is LinkTrailError.Server -> "server"
     is LinkTrailError.Decoding -> "decoding"
-    is LinkTrailError.EmptyResponse -> "empty_response"
-    is LinkTrailError.InvalidUrl -> "invalid_url"
-    is LinkTrailError.NotALinkTrailUrl -> "not_a_linktrail_url"
+    is LinkTrailError.EmptyResponse -> "emptyResponse"
+    is LinkTrailError.InvalidUrl -> "invalidUrl"
+    is LinkTrailError.NotALinkTrailUrl -> "notALinkTrailUrl"
     else -> "unknown"
+  }
+
+  /** Rejects with the camelCase code, the native message unchanged, and statusCode/body for server errors. */
+  private fun reject(promise: Promise, error: Throwable) {
+    val server = error as? LinkTrailError.Server
+    if (server == null) {
+      promise.reject(errorCode(error), error.message, error)
+      return
+    }
+    val userInfo = Arguments.createMap().apply {
+      putInt("statusCode", server.statusCode)
+      server.body?.let { putString("body", it) }
+    }
+    promise.reject(errorCode(error), error.message, error, userInfo)
   }
 
   private fun ReadableMap.booleanOrDefault(key: String, fallback: Boolean): Boolean =

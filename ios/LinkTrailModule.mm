@@ -20,6 +20,16 @@
 @interface LinkTrailModule : NativeLinkTrailSpecBase <NativeLinkTrailSpec>
 @end
 
+// Bridges the Swift (code, message, userInfo) reject to RN's; userInfo surfaces as
+// `error.userInfo` in JS (statusCode/body for server errors).
+static void (^LTReject(RCTPromiseRejectBlock reject))(NSString *, NSString *, NSDictionary *)
+{
+  return ^(NSString *code, NSString *message, NSDictionary *userInfo) {
+    NSError *error = userInfo ? [NSError errorWithDomain:@"LinkTrail" code:0 userInfo:userInfo] : nil;
+    reject(code, message, error);
+  };
+}
+
 @implementation LinkTrailModule {
   LinkTrailModuleImpl *_impl;
 }
@@ -52,7 +62,7 @@ RCT_EXPORT_MODULE(LinkTrail)
   [_impl configure:apiKey
            options:options
            resolve:resolve
-            reject:^(NSString *code, NSString *message) { reject(code, message, nil); }];
+            reject:LTReject(reject)];
 }
 
 - (void)trackInstall:(BOOL)force
@@ -61,7 +71,7 @@ RCT_EXPORT_MODULE(LinkTrail)
 {
   [_impl trackInstall:force
               resolve:resolve
-               reject:^(NSString *code, NSString *message) { reject(code, message, nil); }];
+               reject:LTReject(reject)];
 }
 
 - (void)trackEvent:(NSString *)name
@@ -74,7 +84,7 @@ RCT_EXPORT_MODULE(LinkTrail)
               value:value
            currency:currency
             resolve:resolve
-             reject:^(NSString *code, NSString *message) { reject(code, message, nil); }];
+             reject:LTReject(reject)];
 }
 
 - (void)trackInstallWithClickToken:(NSString *)clickToken
@@ -85,7 +95,7 @@ RCT_EXPORT_MODULE(LinkTrail)
   [_impl trackInstallWithClickToken:clickToken
                               force:force
                             resolve:resolve
-                             reject:^(NSString *code, NSString *message) { reject(code, message, nil); }];
+                             reject:LTReject(reject)];
 }
 
 - (void)handleDeepLink:(NSString *)url
@@ -94,7 +104,7 @@ RCT_EXPORT_MODULE(LinkTrail)
 {
   [_impl handleDeepLink:url
                 resolve:resolve
-                 reject:^(NSString *code, NSString *message) { reject(code, message, nil); }];
+                 reject:LTReject(reject)];
 }
 
 - (void)getLastAttribution:(RCTPromiseResolveBlock)resolve
@@ -113,7 +123,7 @@ RCT_EXPORT_MODULE(LinkTrail)
                               reject:(RCTPromiseRejectBlock)reject
 {
   [_impl requestTrackingAuthorization:resolve
-                               reject:^(NSString *code, NSString *message) { reject(code, message, nil); }];
+                               reject:LTReject(reject)];
 }
 
 - (void)registerForSKAdAttribution
@@ -129,6 +139,16 @@ RCT_EXPORT_MODULE(LinkTrail)
 - (void)setConsent:(BOOL)granted
 {
   [_impl setConsent:granted];
+}
+
+- (void)startLinkDelivery
+{
+  [_impl startLinkDelivery];
+}
+
+- (NSString *)nativeSdkVersion
+{
+  return [_impl nativeSdkVersion];
 }
 
 - (void)resetForTesting
