@@ -16,7 +16,7 @@
 #        booted simulator), SKIP_BUILD=1 to reuse the last build, BUILD_ONLY=1 to only build,
 #        SKIP_PODS=1 to skip pod install.
 set -euo pipefail
-export PATH="$HOME/.maestro/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"   # CI non-login shell
+export PATH="$HOME/.maestro/bin:$PATH:/opt/homebrew/bin:/usr/local/bin"   # CI non-login shell; appended so a pinned Ruby (setup-ruby) wins
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=e2e/lib.sh

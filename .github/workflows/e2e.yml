@@ -174,9 +174,16 @@ jobs:
         with:
           node-version: 20
 
+      # Pin Ruby: the image's Homebrew Ruby 3.4 drops kconv, which CocoaPods needs.
+      - name: Set up Ruby + CocoaPods (bundler)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: example
+
       - name: Install dependencies
         run: |
-          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
           npm ci --no-audit --no-fund
           cd example && npm install --no-audit --no-fund && bundle install
 
@@ -187,7 +194,6 @@ jobs:
           E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
         run: |
           set -euo pipefail
-          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
           BUILD_ONLY=1 bash e2e/ios.sh
 
       - name: Wait for the simulator lock
