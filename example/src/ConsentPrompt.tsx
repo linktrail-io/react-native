@@ -40,6 +40,7 @@ export function ConsentPrompt({
           {/* Allow / Deny — a selection, applied when you tap Paste / Navigate. */}
           <View style={styles.segment}>
             <Pressable
+              testID="consent-allow"
               style={[styles.segItem, granted && styles.segItemActive]}
               onPress={() => setGranted(true)}
             >
@@ -48,6 +49,7 @@ export function ConsentPrompt({
               </Text>
             </Pressable>
             <Pressable
+              testID="consent-deny"
               style={[styles.segItem, !granted && styles.segItemActiveDeny]}
               onPress={() => setGranted(false)}
             >
@@ -64,10 +66,14 @@ export function ConsentPrompt({
           <Text style={styles.pasteCaption}>Paste / Navigate</Text>
           {Platform.OS === 'ios' ? (
             <LinkTrailPasteButton
+              testID="consent-paste"
               style={styles.pasteButton}
               cornerStyle="fixed"
               fillColor="#111"
               foregroundColor="#FFFFFF"
+              // The tap sends the install with the token. Allow → it also grants consent;
+              // Deny → it leaves consent alone, and onDecide(false) below records the denial.
+              grantsConsent={granted}
               onTokenPasted={(token) => {
                 onTokenPasted(token);
                 onDecide(granted);
@@ -75,6 +81,7 @@ export function ConsentPrompt({
             />
           ) : (
             <Pressable
+              testID="consent-continue"
               style={[styles.pasteButton, styles.pasteFallback]}
               onPress={() => onDecide(granted)}
             >
@@ -82,7 +89,7 @@ export function ConsentPrompt({
             </Pressable>
           )}
 
-          <Pressable style={styles.skip} onPress={onSkip}>
+          <Pressable testID="consent-skip" style={styles.skip} onPress={onSkip}>
             <Text style={styles.skipText}>Skip</Text>
           </Pressable>
         </View>
