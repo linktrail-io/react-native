@@ -63,7 +63,7 @@ export interface Spec extends TurboModule {
    */
   startLinkDelivery(): void;
 
-  /** The embedded native LinkTrail SDK version, e.g. `"0.1.0"`. */
+  /** The embedded native LinkTrail SDK version, e.g. `"0.2.0"`. */
   nativeSdkVersion(): string;
 
   /** Clears the install flag, cached attribution, queued events, device id. */

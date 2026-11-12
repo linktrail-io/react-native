@@ -52,8 +52,8 @@ export interface LinkTrailEventResult {
 
 /**
  * An error reported by the native SDK via the `onError` callback: `code`
- * (camelCase), `legacyCode` (old snake_case, deprecated), the native `message`,
- * and `statusCode`/`body` for `server` errors.
+ * (camelCase), the native `message`, `statusCode`/`body` for `server` errors
+ * and `reason` for `invalidEvent` errors.
  */
 export type LinkTrailErrorEvent = LinkTrailErrorInfo;
 

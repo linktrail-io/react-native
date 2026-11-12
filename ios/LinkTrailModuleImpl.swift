@@ -7,8 +7,12 @@ import LinkTrailSDK
 @objc(LinkTrailModuleImpl)
 public final class LinkTrailModuleImpl: NSObject {
 
+  /// This package's version, sent in the `X-LinkTrail-SDK` header. Kept equal to package.json by a test.
+  static let wrapperVersion = "0.2.0"
+
   public typealias Resolve = (Any?) -> Void
-  /// `(code, message, userInfo)`; `userInfo` carries `statusCode`/`body` for `server` errors.
+  /// `(code, message, userInfo)`; `userInfo` carries `statusCode`/`body` for `server` errors and
+  /// `reason` for `invalidEvent` errors.
   public typealias Reject = (String, String, NSDictionary?) -> Void
 
   /// Event sinks wired up by the ObjC++ module to the codegen emitters.
@@ -26,6 +30,9 @@ public final class LinkTrailModuleImpl: NSObject {
     resolve: @escaping Resolve,
     reject: @escaping Reject
   ) {
+    // Before configure, so the very first request already reports the wrapper:
+    // `X-LinkTrail-SDK: react-native/<package.json version>`.
+    LinkTrailSDK.LinkTrail.setSDKIdentifier(platform: "react-native", version: Self.wrapperVersion)
     do {
       let sdk = try LinkTrailSDK.LinkTrail.configure(apiKey: apiKey, options: Self.parseOptions(options))
       sdk.onAttribution { [weak self] attribution in
@@ -51,7 +58,7 @@ public final class LinkTrailModuleImpl: NSObject {
     if let sdk { registerOnLink(sdk) }
   }
 
-  /// The embedded native LinkTrail iOS SDK version, e.g. `"0.1.0"`.
+  /// The embedded native LinkTrail iOS SDK version, e.g. `"0.2.0"`.
   @objc public func nativeSdkVersion() -> String {
     LinkTrailSDK.LinkTrail.version
   }
@@ -285,11 +292,13 @@ public final class LinkTrailModuleImpl: NSObject {
     case .notALinkTrailURL: return "notALinkTrailUrl"
     case .missingAPIKey: return "missingApiKey"
     case .invalidAPIKey: return "invalidApiKey"
+    case .invalidEvent: return "invalidEvent"
     @unknown default: return "unknown"
     }
   }
 
-  /// `code`, the native message unchanged, and `statusCode`/`body` for `server` errors.
+  /// `code`, the native message unchanged, `statusCode`/`body` for `server` errors and `reason`
+  /// for `invalidEvent` errors.
   static func errorPayload(_ error: Error) -> [String: Any] {
     var payload: [String: Any] = [
       "code": errorCode(error),
@@ -300,10 +309,16 @@ public final class LinkTrailModuleImpl: NSObject {
   }
 
   static func errorUserInfo(_ error: Error) -> [String: Any] {
-    guard case let LinkTrailError.server(statusCode, body)? = error as? LinkTrailError else { return [:] }
-    var info: [String: Any] = ["statusCode": statusCode]
-    if let body { info["body"] = body }
-    return info
+    switch error as? LinkTrailError {
+    case let .server(statusCode, body)?:
+      var info: [String: Any] = ["statusCode": statusCode]
+      if let body { info["body"] = body }
+      return info
+    case let .invalidEvent(reason)?:
+      return ["reason": reason]
+    default:
+      return [:]
+    }
   }
 
   private static func reject(_ reject: Reject, _ error: Error) {

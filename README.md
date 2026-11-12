@@ -79,10 +79,14 @@ Every promise rejects with a `LinkTrailError`, and `onError` gets the same field
 
 | Field | |
 | --- | --- |
-| `code` | `missingApiKey`, `invalidApiKey`, `notConfigured`, `invalidUrl`, `notALinkTrailUrl`, `transport`, `server`, `decoding`, `emptyResponse`, `invalidArgument`, `unknown` |
+| `code` | `missingApiKey`, `invalidApiKey`, `notConfigured`, `invalidUrl`, `notALinkTrailUrl`, `transport`, `server`, `decoding`, `emptyResponse`, `invalidArgument`, `invalidEvent`, `unknown` |
 | `message` | The native SDK's message, unchanged |
 | `statusCode`, `body` | `server` errors only (`body` when the server sent one) |
-| `legacyCode` | The pre-0.1.1 snake_case code. Deprecated; removed in the next minor release |
+| `reason` | `invalidEvent` errors only: why the event was rejected, e.g. `name is blank` |
+
+`trackEvent` rejects with `invalidEvent` (and reports it to `onError`) when the name is blank, the
+`value` is NaN, infinite or negative, or the `currency` isn't 3 letters. Nothing is sent. The rules
+come from the native SDK; this package adds none of its own.
 
 ```ts
 try {
@@ -103,8 +107,8 @@ const attribution = await LinkTrail.getLastAttribution();
 const lastLink = await LinkTrail.getLastDeepLink();
 
 // Versions: this package, and the embedded native SDK.
-LinkTrail.version; // "0.1.1"
-LinkTrail.nativeSdkVersion; // e.g. "0.1.0"
+LinkTrail.version; // "0.2.0"
+LinkTrail.nativeSdkVersion; // e.g. "0.2.0"
  
 // iOS ATT / SKAdNetwork. On Android there is no ATT: requestTrackingAuthorization()
 // is not applicable and resolves `true` (the OS does not restrict tracking); the

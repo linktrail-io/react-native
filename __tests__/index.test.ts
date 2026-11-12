@@ -111,7 +111,6 @@ describe('configure', () => {
     mockNative.configure.mockRejectedValue(err);
     await expect(api.LinkTrail.configure('')).rejects.toMatchObject({
       code: 'missingApiKey',
-      legacyCode: 'missing_api_key',
       message: 'blank',
     });
     expect(Linking.addEventListener).not.toHaveBeenCalled();
@@ -220,7 +219,6 @@ describe('event emitters', () => {
     emit({ code: 'transport', message: 'offline' });
     expect(listener).toHaveBeenCalledWith({
       code: 'transport',
-      legacyCode: 'transport',
       message: 'offline',
     });
     s.remove();
