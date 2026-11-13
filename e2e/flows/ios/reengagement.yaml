@@ -1,0 +1,18 @@
+# Re-engagement (real): with the app running, kickflip://e2e/open?url=<link> hands $LINK_URL to
+# LinkTrail.handleDeepLink (an unsigned simulator build has no Associated Domains, so an https link
+# would open Safari). The SDK resolves it and onLink fires once as a re-engagement.
+appId: io.linktrail.kickflipdemo
+---
+- launchApp
+- extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
+- tapOn: { id: "consent-skip" }
+- tapOn: { id: "e2e-grant-consent" }
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: granted" }, timeout: 10000 }
+- assertVisible: { id: "e2e-link-count", text: "onLink: 0" }
+- openLink: ${E2E_OPEN_URL}
+- tapOn: { text: "Open", optional: true }
+- extendedWaitUntil: { visible: { id: "e2e-link-source", text: "source: reengagement" }, timeout: 30000 }
+- assertVisible: { id: "e2e-link-path", text: "path: /products/aj1" }
+- assertVisible: { id: "e2e-link-custom-data", text: '.*"voucher":"SUMMER25".*' }
+- extendedWaitUntil: { visible: "never-shown-e2e-pause", timeout: 5000, optional: true }
+- assertVisible: { id: "e2e-link-count", text: "onLink: 1" }

@@ -1,0 +1,17 @@
+# Offline (no key, no backend): the consent gate shows on first launch; Skip leaves consent
+# undecided (deny-by-default); a granted decision persists and a relaunch does not ask again.
+# (The prompt's Continue is Apple's Paste control, which stays disabled without clipboard content,
+# so this flow grants through the e2e panel.)
+appId: io.linktrail.kickflipdemo
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
+- tapOn: { id: "consent-skip" }
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: undecided" }, timeout: 10000 }
+- assertVisible: { id: "e2e-link-count", text: "onLink: 0" }
+- tapOn: { id: "e2e-grant-consent" }
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: granted" }, timeout: 10000 }
+- stopApp
+- launchApp
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: granted" }, timeout: 30000 }
+- assertNotVisible: "Allow tracking?"

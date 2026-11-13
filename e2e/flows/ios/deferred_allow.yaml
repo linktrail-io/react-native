@@ -1,0 +1,16 @@
+# Deferred · consent ALLOW (real). e2e/ios.sh installs the app fresh and runs _stage_click.yaml
+# first (Safari stages the click token on the clipboard). Here the user allows and taps Paste;
+# onLink must fire once with the linked path + customData. Afterwards the script checks the backend
+# recorded 1 attributed click_token install for that token.
+appId: io.linktrail.kickflipdemo
+---
+- launchApp
+- extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
+- tapOn: { id: "consent-allow" }
+- tapOn: { text: "^Paste$" }
+- extendedWaitUntil: { visible: { id: "e2e-link-path", text: "path: /products/aj1" }, timeout: 30000 }
+- assertVisible: { id: "e2e-link-source", text: "source: deferred" }
+- assertVisible: { id: "e2e-link-custom-data", text: '.*"voucher":"SUMMER25".*' }
+- assertVisible: { id: "e2e-consent", text: "consent: granted" }
+- extendedWaitUntil: { visible: "never-shown-e2e-pause", timeout: 5000, optional: true }
+- assertVisible: { id: "e2e-link-count", text: "onLink: 1" }

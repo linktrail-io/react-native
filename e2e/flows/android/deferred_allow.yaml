@@ -1,0 +1,16 @@
+# Deferred · consent ALLOW (real). Before this flow e2e/android.sh makes a real click on $LINK_URL,
+# stages its lt_click token through the fake Play referrer (setprop debug.linktrail.referrer) and
+# installs the app fresh. Afterwards it checks the backend recorded 1 attributed click_token install.
+appId: io.linktrail.demo.store
+---
+- launchApp
+- extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
+- tapOn: { id: "consent-allow" }
+- tapOn: { id: "consent-continue" }
+- extendedWaitUntil: { visible: { id: "e2e-link-path", text: "path: /products/aj1" }, timeout: 30000 }
+- assertVisible: { id: "e2e-link-source", text: "source: deferred" }
+- assertVisible: { id: "e2e-link-custom-data", text: '.*"voucher":"SUMMER25".*' }
+- assertVisible: { id: "e2e-consent", text: "consent: granted" }
+# Exactly once: give a duplicate delivery time to arrive, then check the count.
+- extendedWaitUntil: { visible: "never-shown-e2e-pause", timeout: 5000, optional: true }
+- assertVisible: { id: "e2e-link-count", text: "onLink: 1" }

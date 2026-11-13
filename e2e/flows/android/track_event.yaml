@@ -1,0 +1,11 @@
+# trackEvent with a value (real): with consent granted, the panel sends
+# trackEvent("e2e_purchase", { value: 9.99, currency: "USD" }) and shows the backend's answer.
+appId: io.linktrail.demo.store
+---
+- launchApp
+- extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
+- tapOn: { id: "consent-allow" }
+- tapOn: { id: "consent-continue" }
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: granted" }, timeout: 10000 }
+- tapOn: { id: "e2e-track-event" }
+- extendedWaitUntil: { visible: { id: "e2e-event", text: "event: ok id=.*" }, timeout: 30000 }

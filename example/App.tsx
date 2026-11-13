@@ -9,6 +9,8 @@ import { ConsentPrompt } from './src/ConsentPrompt';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ProductScreen } from './src/screens/ProductScreen';
 import { SimulatorPanel } from './src/SimulatorPanel';
+import e2eConfig from 'kickflip-e2e-config';
+import { E2EPanel } from './src/e2e/E2EPanel';
 
 /**
  * KickFlip — a small storefront showing how LinkTrail's deferred deep linking
@@ -139,6 +141,13 @@ export default function App() {
         onResetConsent={resetConsent}
         onClose={() => dispatch({ type: 'set-simulator', open: false })}
       />
+
+      {e2eConfig.enabled ? (
+        <E2EPanel
+          consent={consent === 'loading' ? 'loading' : consent}
+          onGrantConsent={grantConsent}
+        />
+      ) : null}
 
       {/* First-launch consent gate — shown until the user decides or skips. */}
       <ConsentPrompt

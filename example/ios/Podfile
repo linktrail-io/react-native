@@ -40,6 +40,16 @@ target 'KickFlip' do
       # :ccache_enabled => true
     )
 
+    # Newer Xcodes reject pod targets below iOS 15 (AsyncStorage's resource
+    # bundle ships 13.0); lift them to the app's minimum.
+    installer.pods_project.targets.each do |t|
+      t.build_configurations.each do |c|
+        if c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.1
+          c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+        end
+      end
+    end
+
     # Xcode 26's clang rejects fmt's consteval format-string checks (an upstream
     # React Native / fmt issue, unrelated to LinkTrail). fmt's base.h always
     # (re)derives FMT_USE_CONSTEVAL from compiler detection, so a preprocessor

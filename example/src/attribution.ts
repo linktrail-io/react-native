@@ -1,7 +1,9 @@
 import { Linking, Platform } from 'react-native';
 import LinkTrail, { type LinkTrailDeepLink } from 'linktrail-react-native';
+import e2eConfig from 'kickflip-e2e-config';
 import type { StoreAction } from './store';
 import { ConsentManager, type ConsentState } from './consent';
+import { e2eRecorder } from './e2e/recorder';
 
 /**
  * Bridges the demo UI to the LinkTrail SDK: configures it, forwards real
@@ -16,7 +18,7 @@ import { ConsentManager, type ConsentState } from './consent';
  * (surfaced via `onError` as a console warning). The deep-link simulator
  * works without a key.
  */
-const API_KEY = 'lt_live_USE_YOUR_API_KEY';
+const API_KEY = e2eConfig.apiKey || 'lt_live_USE_YOUR_API_KEY';
 
 /** One of the demo's deferred-deep-link scenarios. */
 export interface Scenario {
@@ -113,9 +115,11 @@ export function startAttribution(
     // from storage. Routing works even without consent (only tracking is gated).
     subscriptions.push(
       LinkTrail.onLink((link, source) => {
+        e2eRecorder.link(link, source);
         dispatch({ type: 'route-link', link, source });
       }),
     );
+    subscriptions.push(LinkTrail.onAttribution((a) => e2eRecorder.attribution(a)));
 
     // Surface backend failures — most importantly a rejected API key.
     subscriptions.push(
@@ -158,6 +162,19 @@ function routeLocalScheme(
   dispatch: (action: StoreAction) => void,
 ): void {
   if (!url.startsWith('kickflip://')) return;
+  // e2e builds only: kickflip://e2e/open?url=<encoded LinkTrail link> hands the
+  // link to the SDK, which resolves it and delivers it through onLink as a
+  // re-engagement. Used on the iOS simulator, where an unsigned build has no
+  // Associated Domains, so https links open Safari instead of the app.
+  if (url.startsWith('kickflip://e2e/open?url=')) {
+    if (e2eConfig.enabled) {
+      const link = decodeURIComponent(url.slice('kickflip://e2e/open?url='.length));
+      LinkTrail.handleDeepLink(link).catch((error) =>
+        console.warn('LinkTrail e2e open failed:', error),
+      );
+    }
+    return;
+  }
   const [pathPart = '', queryPart] = url.slice('kickflip://'.length).split('?');
   const path = '/' + pathPart.replace(/^\/+|\/+$/g, '');
 
