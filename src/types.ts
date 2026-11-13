@@ -1,3 +1,5 @@
+import type { LinkTrailErrorInfo } from './errors';
+
 /**
  * The deep-link payload the SDK routes on. Returned by install attribution
  * (deferred deep linking), re-engagement opens, and link resolution.
@@ -48,17 +50,12 @@ export interface LinkTrailEventResult {
   attributed: boolean;
 }
 
-/** An error reported by the native SDK via the `onError` callback. */
-export interface LinkTrailErrorEvent {
-  /**
-   * Stable machine-readable code: `missing_api_key`, `invalid_api_key`,
-   * `transport`, `server`, `decoding`, `empty_response`, `invalid_url`,
-   * `not_a_linktrail_url`, `not_configured`, or `unknown`.
-   */
-  code: string;
-  /** Human-readable description. */
-  message: string;
-}
+/**
+ * An error reported by the native SDK via the `onError` callback: `code`
+ * (camelCase), `legacyCode` (old snake_case, deprecated), the native `message`,
+ * and `statusCode`/`body` for `server` errors.
+ */
+export type LinkTrailErrorEvent = LinkTrailErrorInfo;
 
 /** Severity levels for SDK logging, from most to least verbose. */
 export type LinkTrailLogLevel = 'debug' | 'info' | 'warning' | 'error' | 'none';
