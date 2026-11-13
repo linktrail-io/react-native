@@ -49,10 +49,7 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
           Arguments.createMap().apply {
             putString("code", errorCode(error))
             putString("message", error.message ?: "Unknown error")
-            (error as? LinkTrailError.Server)?.let {
-              putInt("statusCode", it.statusCode)
-              it.body?.let { body -> putString("body", body) }
-            }
+            errorDetails(error)?.let { merge(it) }
           }
         )
       }
@@ -74,7 +71,7 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
     LinkTrail.shared?.let(::registerOnLink)
   }
 
-  /** The embedded native LinkTrail Android SDK version, e.g. `"0.1.0"`. */
+  /** The embedded native LinkTrail Android SDK version, e.g. `"0.2.0"`. */
   override fun nativeSdkVersion(): String = LinkTrail.VERSION
 
   private fun registerOnLink(sdk: LinkTrail) {
@@ -276,21 +273,30 @@ class LinkTrailModule(reactContext: ReactApplicationContext) :
     is LinkTrailError.EmptyResponse -> "emptyResponse"
     is LinkTrailError.InvalidUrl -> "invalidUrl"
     is LinkTrailError.NotALinkTrailUrl -> "notALinkTrailUrl"
+    is LinkTrailError.InvalidEvent -> "invalidEvent"
     else -> "unknown"
   }
 
-  /** Rejects with the camelCase code, the native message unchanged, and statusCode/body for server errors. */
+  /** statusCode/body for `server` errors, reason for `invalidEvent` errors; null otherwise. */
+  private fun errorDetails(error: Throwable): WritableMap? = when (error) {
+    is LinkTrailError.Server -> Arguments.createMap().apply {
+      putInt("statusCode", error.statusCode)
+      error.body?.let { putString("body", it) }
+    }
+    is LinkTrailError.InvalidEvent -> Arguments.createMap().apply {
+      putString("reason", error.reason)
+    }
+    else -> null
+  }
+
+  /** Rejects with the camelCase code, the native message unchanged, and the error's details. */
   private fun reject(promise: Promise, error: Throwable) {
-    val server = error as? LinkTrailError.Server
-    if (server == null) {
+    val details = errorDetails(error)
+    if (details == null) {
       promise.reject(errorCode(error), error.message, error)
-      return
+    } else {
+      promise.reject(errorCode(error), error.message, error, details)
     }
-    val userInfo = Arguments.createMap().apply {
-      putInt("statusCode", server.statusCode)
-      server.body?.let { putString("body", it) }
-    }
-    promise.reject(errorCode(error), error.message, error, userInfo)
   }
 
   private fun ReadableMap.booleanOrDefault(key: String, fallback: Boolean): Boolean =

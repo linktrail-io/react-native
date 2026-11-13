@@ -19,14 +19,13 @@ export {
   LinkTrailError,
   type LinkTrailErrorCode,
   type LinkTrailErrorInfo,
-  type LinkTrailLegacyErrorCode,
 } from './errors';
 export {
   LinkTrailPasteButton,
   type LinkTrailPasteButtonProps,
 } from './LinkTrailPasteButton';
 
-/** Rejects with a `LinkTrailError` (camelCase `code`, `legacyCode`, native message). */
+/** Rejects with a `LinkTrailError` (camelCase `code`, native message). */
 function call<T>(promise: Promise<unknown>): Promise<T> {
   return promise.then(
     (value) => value as T,
@@ -114,12 +113,12 @@ function stopLinkForwarding(): void {
 }
 
 export const LinkTrail = {
-  /** This package's version (`linktrail-react-native`), e.g. `"0.1.1"`. */
+  /** This package's version (`linktrail-react-native`), e.g. `"0.2.0"`. */
   version: LINKTRAIL_RN_VERSION,
 
   /**
    * The embedded native LinkTrail SDK version (iOS `LinkTrailSDK` or Android
-   * `io.linktrail:sdk`), e.g. `"0.1.0"`.
+   * `io.linktrail:sdk`), e.g. `"0.2.0"`.
    */
   get nativeSdkVersion(): string {
     return NativeLinkTrail.nativeSdkVersion();

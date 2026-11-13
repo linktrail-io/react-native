@@ -1,5 +1,5 @@
 /* eslint-env jest */
-// wrapper-parity 0.1.1: link/attribution buffering, error codes, version.
+// Wrapper parity: link/attribution buffering, error codes (incl. invalidEvent), version.
 import { Linking } from 'react-native';
 
 type Listener = (payload: unknown) => void;
@@ -193,7 +193,7 @@ describe('onAttribution replay', () => {
 });
 
 describe('error codes', () => {
-  it('rejects with a LinkTrailError: camelCase code, legacyCode, native message', async () => {
+  it('rejects with a LinkTrailError: camelCase code, native message', async () => {
     mockNative.trackEvent.mockRejectedValue(
       Object.assign(new Error('Server returned status 500: boom'), {
         code: 'server',
@@ -204,7 +204,6 @@ describe('error codes', () => {
     expect(err).toBeInstanceOf(api.LinkTrailError);
     expect(err).toMatchObject({
       code: 'server',
-      legacyCode: 'server',
       message: 'Server returned status 500: boom',
       statusCode: 500,
       body: 'boom',
@@ -212,31 +211,48 @@ describe('error codes', () => {
   });
 
   it.each([
-    ['missingApiKey', 'missing_api_key'],
-    ['invalidApiKey', 'invalid_api_key'],
-    ['notConfigured', 'not_configured'],
-    ['invalidUrl', 'invalid_url'],
-    ['notALinkTrailUrl', 'not_a_linktrail_url'],
-    ['transport', 'transport'],
-    ['decoding', 'decoding'],
-    ['emptyResponse', 'empty_response'],
-    ['invalidArgument', 'invalid_argument'],
-  ])(
-    'maps %s <-> legacy %s (either form from native)',
-    async (code, legacy) => {
-      for (const nativeCode of [code, legacy]) {
-        mockNative.trackInstall.mockRejectedValueOnce(
-          Object.assign(new Error('m'), { code: nativeCode }),
-        );
-        await expect(api.LinkTrail.trackInstall()).rejects.toMatchObject({
-          code,
-          legacyCode: legacy,
-        });
-      }
+    'missingApiKey',
+    'invalidApiKey',
+    'notConfigured',
+    'invalidUrl',
+    'notALinkTrailUrl',
+    'transport',
+    'decoding',
+    'emptyResponse',
+    'invalidArgument',
+    'invalidEvent',
+  ])('passes the native code %s through', async (code) => {
+    mockNative.trackInstall.mockRejectedValueOnce(
+      Object.assign(new Error('m'), { code }),
+    );
+    await expect(api.LinkTrail.trackInstall()).rejects.toMatchObject({ code });
+  });
+
+  it('has no legacyCode (removed in 0.2.0)', async () => {
+    mockNative.trackInstall.mockRejectedValueOnce(
+      Object.assign(new Error('m'), { code: 'transport' }),
+    );
+    const err = await api.LinkTrail.trackInstall().catch((e) => e);
+    expect(err).not.toHaveProperty('legacyCode');
+    const listener = jest.fn();
+    api.LinkTrail.onError(listener);
+    nativeEmit('onError', { code: 'transport', message: 'offline' });
+    expect(listener.mock.calls[0][0]).not.toHaveProperty('legacyCode');
+  });
+
+  it.each(['missing_api_key', 'invalid_event', 'E_WHAT'])(
+    'maps the unrecognised code %s to unknown',
+    async (nativeCode) => {
+      mockNative.trackInstall.mockRejectedValueOnce(
+        Object.assign(new Error('m'), { code: nativeCode }),
+      );
+      await expect(api.LinkTrail.trackInstall()).rejects.toMatchObject({
+        code: 'unknown',
+      });
     },
   );
 
-  it('maps unrecognised codes to unknown and omits statusCode/body', async () => {
+  it('maps unrecognised codes to unknown and omits statusCode/body/reason', async () => {
     mockNative.handleDeepLink.mockRejectedValue(
       Object.assign(new Error('weird'), { code: 'E_WHAT' }),
     );
@@ -244,6 +260,7 @@ describe('error codes', () => {
     expect(err.code).toBe('unknown');
     expect(err).not.toHaveProperty('statusCode');
     expect(err).not.toHaveProperty('body');
+    expect(err).not.toHaveProperty('reason');
   });
 
   it('onError carries statusCode and body for server errors', () => {
@@ -256,10 +273,42 @@ describe('error codes', () => {
     });
     expect(listener).toHaveBeenCalledWith({
       code: 'server',
-      legacyCode: 'server',
       message: 'Server returned status 503',
       statusCode: 503,
     });
+  });
+});
+
+describe('invalidEvent (wrapper parity 0.2.0)', () => {
+  const message = 'Invalid event: value must not be negative (got -1.0)';
+  const reason = 'value must not be negative (got -1.0)';
+
+  it('rejects trackEvent with code invalidEvent, the native message and reason', async () => {
+    mockNative.trackEvent.mockRejectedValue(
+      Object.assign(new Error(message), {
+        code: 'invalidEvent',
+        userInfo: { reason },
+      }),
+    );
+    const err = await api.LinkTrail.trackEvent('purchase', { value: -1 }).catch(
+      (e) => e,
+    );
+    expect(err).toBeInstanceOf(api.LinkTrailError);
+    expect(err).toMatchObject({ code: 'invalidEvent', message, reason });
+    expect(err).not.toHaveProperty('statusCode');
+  });
+
+  it('passes the arguments to native unchanged (no wrapper-side validation)', async () => {
+    mockNative.trackEvent.mockResolvedValue({ attributed: false });
+    await api.LinkTrail.trackEvent(' ', { value: NaN, currency: 'usdollar' });
+    expect(mockNative.trackEvent).toHaveBeenCalledWith(' ', NaN, 'usdollar');
+  });
+
+  it('onError carries reason for invalidEvent', () => {
+    const listener = jest.fn();
+    api.LinkTrail.onError(listener);
+    nativeEmit('onError', { code: 'invalidEvent', message, reason });
+    expect(listener).toHaveBeenCalledWith({ code: 'invalidEvent', message, reason });
   });
 });
 
@@ -269,7 +318,7 @@ describe('version', () => {
   });
 
   it('nativeSdkVersion comes from native', () => {
-    mockNative.nativeSdkVersion.mockReturnValue('0.1.0');
-    expect(api.LinkTrail.nativeSdkVersion).toBe('0.1.0');
+    mockNative.nativeSdkVersion.mockReturnValue('0.2.0');
+    expect(api.LinkTrail.nativeSdkVersion).toBe('0.2.0');
   });
 });

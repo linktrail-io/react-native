@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.0
+
+Adopts the native **0.2.0** SDKs. All four LinkTrail SDKs (iOS, Android, React Native, Flutter)
+now share one version.
+
+### Changed
+- Native pins: iOS `LinkTrailSDK ~> 0.2.0` (from `~> 0.1.0`) and Android `io.linktrail:sdk:0.2.0`
+  (from `0.1.0`). The example app builds against the same pins.
+- iOS now reports the wrapper in the `X-LinkTrail-SDK` header (`react-native/0.2.0`), as Android
+  already did.
+
+### Added
+- Error code `invalidEvent`, with the rejected `reason` (string) on the error and on `onError`
+  events. `trackEvent` reports it when the name is blank, the `value` is NaN, infinite or
+  negative, or the `currency` isn't 3 letters, and sends nothing. The message is the native one
+  (`Invalid event: <reason>`).
+
+### Removed
+- **Breaking:** `error.legacyCode` and the `LinkTrailLegacyErrorCode` type (deprecated in 0.1.1).
+  Use `error.code`. Snake_case codes from native are no longer translated; they map to `unknown`.
+
 ## 0.1.1
 
 Implements [wrapper parity 0.1.1](https://github.com/linktrail-io/workspace/blob/main/contracts/wrapper-parity-0.1.1.md).
