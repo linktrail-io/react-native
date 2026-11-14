@@ -2,7 +2,8 @@ name: E2E
 
 # Maestro e2e for the React Native wrapper, on the example app built from the local wrapper source,
 # with the same flows as the native SDK suites (see TESTING.md). GitHub-hosted runners only.
-#   config           e2e/e2e-env.json + e2e/e2e-flows.json + the flow files agree; unit tests; shellcheck
+#   config           e2e/e2e-env.json + e2e/e2e-flows.json + the flow files agree; unit tests;
+#                    shellcheck; Maestro syntax of every flow
 #   native-versions  pinned native SDK versions vs the latest published
 #   android          ubuntu + KVM emulator (API 35)
 #   ios              macOS simulator
@@ -45,7 +46,7 @@ jobs:
   config:
     name: E2E config + scripts
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Validate the targets and the flow table
@@ -54,6 +55,10 @@ jobs:
         run: python3 -I -m unittest discover -s e2e/tests -v
       - name: shellcheck
         run: shellcheck -x e2e/*.sh
+      - name: Maestro syntax of every flow
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          for f in e2e/flows/*/*.yaml; do "$HOME/.maestro/bin/maestro" check-syntax "$f" >/dev/null || { echo "::error file=$f::Maestro syntax error"; exit 1; }; done
 
   native-versions:
     name: Native SDK versions

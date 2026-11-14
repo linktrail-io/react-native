@@ -27,7 +27,7 @@ App ids: Android `io.linktrail.demo.store` (the `applicationId`; the Kotlin name
   matrix, what each asserts). Each row runs on both platforms from `e2e/flows/<platform>/<yaml>.yaml`.
 - `e2e/targets.py` resolves both for the runners (`resolve`, `jobs`) and checks they agree with the
   flow files (`validate`); `e2e/verify.py` holds the backend rules (same as the native
-  `scripts/e2e-verify.py`). The `config` job runs `validate`, `e2e/tests` and shellcheck.
+  `scripts/e2e-verify.py`). The `config` job runs `validate`, `e2e/tests`, shellcheck and `maestro check-syntax` on every flow.
 
 ### Rows
 

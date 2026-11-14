@@ -65,8 +65,10 @@ REINSTALL=""
 run_maestro() {
   local label="$1"; shift
   echo "   maestro: $label"
-  # shellcheck disable=SC2086  # $REINSTALL is empty or one flag
-  maestro $REINSTALL --device "$DEVICE" test "$@"
+  # --reinstall-driver is an option of `test` (not a global one). shellcheck disable=SC2086:
+  # $REINSTALL is empty or that one flag.
+  # shellcheck disable=SC2086
+  maestro --device "$DEVICE" test $REINSTALL "$@"
   local rc=$?
   REINSTALL=""
   return $rc
