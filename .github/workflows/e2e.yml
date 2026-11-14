@@ -1,20 +1,35 @@
 name: E2E
 
-# Maestro smoke e2e for the React Native wrapper, on the example app built from the local wrapper
-# source (see TESTING.md):
-#   native-versions  pinned native SDK versions vs the latest published (report-only for now)
+# Maestro e2e for the React Native wrapper, on the example app built from the local wrapper source,
+# with the same flows as the native SDK suites (see TESTING.md). GitHub-hosted runners only.
+#   config           e2e/e2e-env.json + e2e/e2e-flows.json + the flow files agree; unit tests;
+#                    shellcheck; Maestro syntax of every flow
+#   native-versions  pinned native SDK versions vs the latest published
 #   android          ubuntu + KVM emulator (API 35)
-#   ios              self-hosted Mac simulator, serialised by e2e/sim-lock.sh
+#   ios              macOS simulator
 #
-# Secrets: LINKTRAIL_KEY (workspace SDK key) and E2E_TOKEN (X-E2E-Token for the private backend
-# check). Without both, only the offline flows run and the real ones are skipped with a notice.
-# Pull requests from forks get no secrets, and never run on the self-hosted Mac.
+# Environment: prod by default (LINKTRAIL_ENV); a manual run can pick dev and the link types.
+# Secrets: LINKTRAIL_KEY (prod workspace SDK key), LINKTRAIL_TEST_KEY (dev workspace SDK key, dev
+# runs only) and E2E_TOKEN (X-E2E-Token for the private backend check). Without the environment's
+# key and E2E_TOKEN only the offline flow runs and the real ones are skipped with a notice (pull
+# requests from forks get no secrets).
 # Variables (optional):
 #   NATIVE_VERSION_STRICT  'false' to only warn on native SDK drift (default: fail)
+#   E2E_ENV                the environment of pull request runs (default prod)
 
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Backend + links (e2e/e2e-env.json)'
+        type: choice
+        options: [prod, dev]
+        default: prod
+      link_types:
+        description: 'Link-type rows: all, none, or a comma list (general,partner)'
+        type: string
+        default: all
 
 permissions:
   contents: read
@@ -23,7 +38,28 @@ concurrency:
   group: e2e-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  LINKTRAIL_ENV: ${{ inputs.environment || vars.E2E_ENV || 'prod' }}
+  E2E_LINK_TYPES: ${{ inputs.link_types || 'all' }}
+
 jobs:
+  config:
+    name: E2E config + scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the targets and the flow table
+        run: python3 -I e2e/targets.py validate
+      - name: Unit tests (e2e/targets.py, e2e/verify.py)
+        run: python3 -I -m unittest discover -s e2e/tests -v
+      - name: shellcheck
+        run: shellcheck -x e2e/*.sh
+      - name: Maestro syntax of every flow
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          for f in e2e/flows/*/*.yaml; do "$HOME/.maestro/bin/maestro" check-syntax "$f" >/dev/null || { echo "::error file=$f::Maestro syntax error"; exit 1; }; done
+
   native-versions:
     name: Native SDK versions
     runs-on: ubuntu-latest
@@ -37,14 +73,10 @@ jobs:
   android:
     name: Android e2e (Maestro)
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 150
     env:
       API_LEVEL: 35
-      HAVE_SECRETS: ${{ secrets.LINKTRAIL_KEY != '' && secrets.E2E_TOKEN != '' }}
     steps:
-      - name: Secrets notice
-        if: env.HAVE_SECRETS != 'true'
-        run: echo "::notice title=e2e::LINKTRAIL_KEY / E2E_TOKEN not available — only the offline flows run."
 
       - uses: actions/checkout@v4
 
@@ -78,6 +110,7 @@ jobs:
       - name: Build the example APK
         env:
           LINKTRAIL_KEY: ${{ secrets.LINKTRAIL_KEY }}
+          LINKTRAIL_TEST_KEY: ${{ secrets.LINKTRAIL_TEST_KEY }}
           E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
           BUILD_ONLY: '1'
         run: bash e2e/android.sh
@@ -119,9 +152,10 @@ jobs:
           script: echo "Generated AVD snapshot for caching."
 
       - name: E2E — Maestro
-        timeout-minutes: 30
+        timeout-minutes: 120
         env:
           LINKTRAIL_KEY: ${{ secrets.LINKTRAIL_KEY }}
+          LINKTRAIL_TEST_KEY: ${{ secrets.LINKTRAIL_TEST_KEY }}
           E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
           SKIP_BUILD: '1'
         uses: reactivecircus/android-emulator-runner@v2
@@ -138,6 +172,15 @@ jobs:
           emulator-boot-timeout: 900
           script: sleep 45 && bash e2e/android.sh
 
+      - name: Upload the e2e results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results-android
+          path: e2e/results-android.jsonl
+          retention-days: 14
+          if-no-files-found: ignore
+
       - name: Upload Maestro debug output
         if: failure()
         uses: actions/upload-artifact@v4
@@ -153,15 +196,11 @@ jobs:
     # manual runs only, because the job uses the repo's e2e secrets.
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: macos-latest
-    timeout-minutes: 120
+    timeout-minutes: 210
     env:
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
-      HAVE_SECRETS: ${{ secrets.LINKTRAIL_KEY != '' && secrets.E2E_TOKEN != '' }}
     steps:
-      - name: Secrets notice
-        if: env.HAVE_SECRETS != 'true'
-        run: echo "::notice title=e2e::LINKTRAIL_KEY / E2E_TOKEN not available — only the offline flows run."
 
       - uses: actions/checkout@v4
 
@@ -191,6 +230,7 @@ jobs:
       - name: Build the example app
         env:
           LINKTRAIL_KEY: ${{ secrets.LINKTRAIL_KEY }}
+          LINKTRAIL_TEST_KEY: ${{ secrets.LINKTRAIL_TEST_KEY }}
           E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
         run: |
           set -euo pipefail
@@ -213,12 +253,22 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b >/dev/null 2>&1 || true
 
       - name: E2E — Maestro
-        timeout-minutes: 45
+        timeout-minutes: 160
         env:
           LINKTRAIL_KEY: ${{ secrets.LINKTRAIL_KEY }}
+          LINKTRAIL_TEST_KEY: ${{ secrets.LINKTRAIL_TEST_KEY }}
           E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
           SKIP_BUILD: '1'
         run: DEVICE="$SIM_UDID" bash e2e/ios.sh
+
+      - name: Upload the e2e results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results-ios
+          path: e2e/results-ios.jsonl
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Upload Maestro debug output
         if: failure()

@@ -33,3 +33,7 @@ coverage/
 *.jks
 example/android/upload-keystore.jks
 example/ios/build-e2e/
+
+# e2e run output
+e2e/results-*.jsonl
+__pycache__/

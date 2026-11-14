@@ -1,0 +1,60 @@
+{
+  "_comment": "The ONE place for e2e hosts, slugs and backend URLs, in the same shape as the native SDKs' scripts/e2e-env.json. e2e/targets.py resolves it for e2e/android.sh and e2e/ios.sh; nothing else names a host or slug. 'links': the four link slots (host names the environment field the slug is served on). 'expect': what the click-token flows must show (path regex + voucher in customData). 'link_types': one dedicated link per type and environment; a type with no entry for the run's environment is skipped with a notice, never failed. 'link_type_expect': what those links route to (path, voucher, and customData source next to linkType == the type). 'rewarded_link_types': the types whose link pays per_install: an allow install must earn reward.amountMinor, a deny install nothing; the other types must have reward null. 'reward_links': the event-reward links (model -> environment -> link, plus the link's type); an environment without one skips those rows. 'reward_events': what the reward flows send after the install. 'backend_checks': which verify-endpoint fields that environment's backend has deployed (earning: reward + earning on the click; open_count: openCount for the re-engagement rows; events: the click's events field). A false check is recorded as skipped, never pass or fail. 'override_backend': point the debug app at backend_url (Android: debug.linktrail.base; the iOS wrapper ships the binary SDK, which has no override, so iOS skips the real flows on such an environment).",
+  "default_environment": "prod",
+  "aliases": { "test": "dev" },
+  "environments": {
+    "prod": {
+      "backend_url": "https://backend.linktrail.io",
+      "key_secret": "LINKTRAIL_KEY",
+      "subdomain_host": "kick.linktrail.io",
+      "custom_host": "link.kynxlabs.com",
+      "override_backend": false,
+      "backend_checks": { "earning": true, "open_count": true, "events": false }
+    },
+    "dev": {
+      "backend_url": "https://linktrail-backend-k9zl.onrender.com",
+      "key_secret": "LINKTRAIL_TEST_KEY",
+      "subdomain_host": "kick.test.linktrail.io",
+      "custom_host": "dev-test.kynxlabs.com",
+      "override_backend": true,
+      "backend_checks": { "earning": true, "open_count": true, "events": false }
+    }
+  },
+  "links": {
+    "custom_link": { "host": "custom_host", "slug": "summer-sale" },
+    "subdomain_link": { "host": "subdomain_host", "slug": "discounted-product" },
+    "custom_problistic_link": { "host": "custom_host", "slug": "custom-problistic" },
+    "subdomain_problistic_link": { "host": "subdomain_host", "slug": "ios-problistic" }
+  },
+  "expect": { "path": "/products/.+", "voucher": "SUMMER25" },
+  "link_types": {
+    "general": {
+      "prod": { "host": "custom_host", "slug": "e2e-general" },
+      "dev": { "host": "custom_host", "slug": "e2e-general" }
+    },
+    "campaign": {
+      "prod": { "host": "custom_host", "slug": "e2e-campaign" },
+      "dev": { "host": "custom_host", "slug": "e2e-campaign" }
+    },
+    "influencer": {
+      "prod": { "host": "custom_host", "slug": "e2e-influencer" },
+      "dev": { "host": "custom_host", "slug": "e2e-influencer" }
+    },
+    "partner": {
+      "prod": { "host": "custom_host", "slug": "e2e-partner" },
+      "dev": { "host": "custom_host", "slug": "e2e-partner" }
+    }
+  },
+  "link_type_expect": { "path": "/products/aj1", "voucher": "SUMMER25", "source": "e2e" },
+  "rewarded_link_types": ["influencer", "partner"],
+  "reward_links": {
+    "per_event": {
+      "dev": { "host": "custom_host", "slug": "e2e-event", "link_type": "influencer" }
+    },
+    "rev_share": {
+      "prod": { "host": "custom_host", "slug": "e2e-revshare", "link_type": "partner" },
+      "dev": { "host": "custom_host", "slug": "e2e-revshare", "link_type": "partner" }
+    }
+  },
+  "reward_events": { "revenue_minor": 1999, "other_event": "e2e_other" }
+}

@@ -1,0 +1,20 @@
+# Re-engagement on a link-type link (real). Rows: reengagement_type_allow__<type>,
+# reengagement_type_deny__<type>. Before this flow e2e/android.sh installs the app through the
+# type's link (real click + fake referrer + deferred_allow / deferred_deny) and reads the backend's
+# baseline for that click. This flow restarts the app (it keeps its consent answer) and opens the
+# same link again. Afterwards the script checks the backend: openCount +1 on allow, unchanged on
+# deny; installCount and earning unchanged (no second reward).
+appId: io.linktrail.demo.store
+---
+- stopApp
+- launchApp
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: ${E2E_CONSENT_STATE}" }, timeout: 30000 }
+- assertNotVisible: "Allow tracking?"
+# onLink counts are per launch: the deferred delivery of the install step is not repeated.
+- assertVisible: { id: "e2e-link-count", text: "onLink: 0" }
+- openLink: ${E2E_OPEN_URL}
+- extendedWaitUntil: { visible: { id: "e2e-link-source", text: "source: reengagement" }, timeout: 30000 }
+- assertVisible: { id: "e2e-link-path", text: "path: ${E2E_PATH_RE}" }
+- assertVisible: { id: "e2e-link-custom-data", text: "customData: ${E2E_CUSTOM_DATA_RE}" }
+- extendedWaitUntil: { visible: "never-shown-e2e-pause", timeout: 5000, optional: true }
+- assertVisible: { id: "e2e-link-count", text: "onLink: 1" }

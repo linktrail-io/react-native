@@ -1,4 +1,5 @@
-# Safari half of the iOS deferred flows (run by e2e/ios.sh before deferred_allow / deferred_deny):
+# Safari half of the iOS click rows (run by e2e/ios.sh before every click, reward, reopen and
+# probabilistic row):
 # open $LINK_URL; the LinkTrail interstitial makes a real click and stages lt_click=<token> on the
 # clipboard. The script then reads the token off the simulator pasteboard for the backend check.
 appId: com.apple.mobilesafari

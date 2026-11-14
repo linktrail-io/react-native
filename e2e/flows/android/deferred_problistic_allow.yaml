@@ -1,0 +1,17 @@
+# Deferred · probabilistic · consent ALLOW (real). Rows: deferred_custom_allow_problistic,
+# deferred_subdomain_allow_problistic. e2e/android.sh makes a real click on $LINK_URL from the runner
+# (same public IP as the emulator) and installs the app fresh with NO referrer staged, so only the
+# backend's IP + platform match can attribute the install. The match may or may not happen, so the
+# flow asserts the install was answered (attributed or organic), not where the app lands. The
+# wrapper exposes no SDK device id, so the native suites' device lookup is not checkable here.
+appId: io.linktrail.demo.store
+---
+- launchApp
+- extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
+- tapOn: { id: "consent-allow" }
+- tapOn: { id: "consent-continue" }
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: granted" }, timeout: 10000 }
+# trackInstall() joins (or returns) the auto-tracked install: its answer is the install's.
+- tapOn: { id: "e2e-track-install" }
+- extendedWaitUntil: { visible: { id: "e2e-install", text: "install: ok attributed=(true|false)" }, timeout: 30000 }
+- assertNotVisible: { id: "e2e-link-count", text: "onLink: [2-9].*" }

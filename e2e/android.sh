@@ -1,39 +1,37 @@
 #!/usr/bin/env bash
 #
-# Android smoke e2e for the React Native wrapper: builds the example app (wrapper from source,
-# native io.linktrail:sdk from Maven) with the JS bundled in, then runs the Maestro flows in
-# e2e/flows/android on a booted emulator.
+# Android e2e for the React Native wrapper: builds the example app (wrapper from source, native
+# io.linktrail:sdk from Maven) with the JS bundled in, then runs the rows of e2e/e2e-flows.json from
+# e2e/flows/android on a booted emulator, against the links of e2e/e2e-env.json (see TESTING.md).
 #
-#   consent_prompt   offline: the consent gate shows, Deny persists across a relaunch.
-#   deferred_allow   real click → fake Play referrer → Allow → onLink once (path + customData),
-#                    then the backend recorded 1 attributed click_token install.
-#   deferred_deny    the same with Deny → the backend recorded nothing.
-#   reengagement     https App Link while installed → onLink (source reengagement).
-#   track_event      trackEvent with a value → resolved by the backend.
+# Click rows make a real click with an Android Chrome UA, take lt_click from the Play Store redirect
+# and stage it through the SDK's debug-only fake referrer (setprop debug.linktrail.referrer, a
+# debuggable app); the probabilistic rows stage nothing. An environment with override_backend points
+# the debug app at its backend (setprop debug.linktrail.base). Re-engagement opens the https App Link
+# when the app's manifest claims the host (approved for the app first), else kickflip://e2e/open.
 #
-# The deferred flows stage the click through the SDK's debug-only fake referrer
-# (adb shell setprop debug.linktrail.referrer "lt_click=<token>"), which needs a debuggable app
-# (io.linktrail:sdk 0.1.0 or later).
-#
-# Usage: bash e2e/android.sh [flow…]
-# Env:   LINKTRAIL_KEY, E2E_TOKEN (see e2e/lib.sh), RETRIES (3), CLICK_WAIT (60),
-#        SKIP_BUILD=1 to reuse the last APK, BUILD_ONLY=1 to only
-#        build it (CI builds before booting the emulator).
+# Usage: bash e2e/android.sh [row|flow|kind…]
+# Env:   see e2e/lib.sh; SKIP_BUILD=1 reuses the last APK, BUILD_ONLY=1 only builds it (CI builds
+#        before booting the emulator).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PLATFORM=android
 # shellcheck source=e2e/lib.sh
 source "$ROOT/e2e/lib.sh"
 
 APP_ID="io.linktrail.demo.store"
 FLOW_DIR="$ROOT/e2e/flows/android"
 APK="$ROOT/example/android/app/build/outputs/apk/debug/app-debug.apk"
-CLICK_WAIT="${CLICK_WAIT:-60}"
+MANIFEST="$ROOT/example/android/app/src/main/AndroidManifest.xml"
 # Android Chrome UA: the redirect sends Android clicks to the Play Store with &referrer=lt_click=<token>.
 ANDROID_UA="Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
 
-reset_props() { adb shell setprop debug.linktrail.referrer "''" >/dev/null 2>&1 || true; }
-cleanup() { remove_config; [ "${BUILD_ONLY:-0}" = 1 ] || reset_props; }
+reset_props() {
+  adb shell setprop debug.linktrail.referrer "''" >/dev/null 2>&1 || true
+  adb shell setprop debug.linktrail.base "''" >/dev/null 2>&1 || true
+}
+cleanup() { cleanup_lib; [ "${BUILD_ONLY:-0}" = 1 ] || reset_props; }
 trap cleanup EXIT
 
 if [ "${SKIP_BUILD:-0}" != 1 ]; then
@@ -49,82 +47,54 @@ command -v maestro >/dev/null 2>&1 || { echo "ERROR: maestro not found (curl -Ls
 command -v adb >/dev/null 2>&1 || { echo "ERROR: adb not found (Android platform-tools)"; exit 1; }
 adb get-state >/dev/null 2>&1 || { echo "ERROR: no booted emulator/device (adb devices)"; exit 1; }
 
-if [ "$#" -gt 0 ]; then
-  FLOWS=(); for f in "$@"; do FLOWS+=("$(basename "${f%.yaml}")"); done
-else
-  FLOWS=(consent_prompt deferred_allow deferred_deny reengagement track_event)
-fi
+MAESTRO=(maestro)
+[ -n "${ANDROID_SERIAL:-}" ] && MAESTRO+=(--device "$ANDROID_SERIAL")
+run_maestro() { local label="$1"; shift; echo "   maestro: $label"; "${MAESTRO[@]}" test "$@"; }
 
-reset_maestro() {
+reset_driver() {
   adb forward --remove-all >/dev/null 2>&1 || true
   adb uninstall dev.mobile.maestro >/dev/null 2>&1 || true
   adb uninstall dev.mobile.maestro.test >/dev/null 2>&1 || true
+  sleep 3
 }
 
-# Slow CI emulators raise "System UI isn't responding" over the app; hide ANR dialogs.
-settle_device() {
+install_fresh() {
+  adb uninstall "$APP_ID" >/dev/null 2>&1 || true
+  [ -n "$TOKEN" ] || adb shell setprop debug.linktrail.referrer "''" >/dev/null 2>&1 || true
+  if [ -n "$BASE_OVERRIDE" ]; then adb shell setprop debug.linktrail.base "$BASE_OVERRIDE"
+  else adb shell setprop debug.linktrail.base "''" >/dev/null 2>&1 || true; fi
+  adb install -t "$APK" >/dev/null || return 1
+  # Approve the link hosts for the app so an https App Link opens it, not the browser (Android 12+).
+  adb shell pm set-app-links-user-selection --user 0 --package "$APP_ID" true "$SUBDOMAIN_HOST" "$CUSTOM_HOST" >/dev/null 2>&1 || true
+  # Slow CI emulators raise "System UI isn't responding" over the app; hide ANR dialogs.
   adb shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 || true
   adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
 }
 
-# real_click: a real click with an Android UA; prints the lt_click token from the Play redirect.
-real_click() {
+# stage_click <url> <token|no-token>: a real click with an Android UA; token: wait until the backend
+# knows it and stage it as the fake Play referrer.
+stage_click() {
   local redirect token
-  redirect="$(curl -sS -o /dev/null -A "$ANDROID_UA" -w '%{redirect_url}' "$LINK_URL")" || return 1
+  adb shell setprop debug.linktrail.referrer "''" >/dev/null 2>&1 || true
+  redirect="$(curl -sS -o /dev/null -A "$ANDROID_UA" -w '%{redirect_url}' "$1" 2>/dev/null || true)"
   token="$(printf '%s' "$redirect" | grep -oE 'lt_click(%3D|=)[0-9a-f]{32}' | head -1 | grep -oE '[0-9a-f]{32}$' || true)"
-  [ -n "$token" ] || { echo "   no lt_click token in the redirect for $LINK_URL" >&2; return 1; }
-  printf '%s' "$token"
+  if [ -z "$token" ]; then
+    FAIL_STEP="real click"; FAIL_ERROR="no lt_click in the Play Store redirect for $1"
+    [ "$(curl -sS -o /dev/null -w '%{http_code}' "$1" 2>/dev/null || true)" = 404 ] && FAIL_ERROR="$LINKTRAIL_ENV link ${1##*/} not created"
+    return 1
+  fi
+  echo "   click ${token:0:8}… made"
+  wait_click "$token" || return 1
+  [ "$2" = token ] || return 0
+  TOKEN="$token"
+  adb shell setprop debug.linktrail.referrer "lt_click=$token"
 }
 
-# wait_click <token>: until GET /v1/events/click/<token> answers 200 for this workspace's key.
-wait_click() {
-  local code="" waited=0
-  while [ "$waited" -lt "$CLICK_WAIT" ]; do
-    code="$(printf 'header = "X-API-Key: %s"\n' "$LINKTRAIL_KEY" \
-      | curl -sS -o /dev/null -w '%{http_code}' --max-time 10 --config - "$BACKEND_URL/v1/events/click/$1" 2>/dev/null || true)"
-    [ "$code" = 200 ] && return 0
-    sleep 2; waited=$((waited + 2))
-  done
-  echo "   click not visible to this key after ${CLICK_WAIT}s (last status: ${code:-none})" >&2
-  return 1
+# open_url_for <url>: the https App Link when the manifest claims its host, else the e2e hook.
+open_url_for() {
+  local host="${1#https://}"; host="${host%%/*}"
+  if [ -n "$host" ] && grep -q "android:host=\"$host\"" "$MANIFEST"; then printf '%s' "$1"
+  else printf 'kickflip://e2e/open?url=%s' "$(python3 -I -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1")"; fi
 }
 
-# run_once <flow name>: fresh install, stage what the flow needs, run it, check the backend.
-run_once() {
-  local name="$1" token=""
-  adb uninstall "$APP_ID" >/dev/null 2>&1 || true
-  reset_props
-  if [[ "$name" == deferred_* ]]; then
-    token="$(real_click)" || return 1
-    echo "   click ${token:0:8}… made; waiting for the backend"
-    wait_click "$token" || return 1
-    adb shell setprop debug.linktrail.referrer "lt_click=$token"
-  fi
-  adb install -t "$APK" >/dev/null
-  if [ "$name" = reengagement ]; then
-    # Approve the link host for the app so the https link opens it, not the browser (Android 12+).
-    adb shell pm set-app-links-user-selection --user 0 --package "$APP_ID" true "$LINK_HOST" >/dev/null 2>&1 || true
-  fi
-  settle_device
-  maestro test -e LINK_URL="$LINK_URL" "$FLOW_DIR/$name.yaml" || return 1
-  verify_click "$name" "$token"
-}
-
-fail=0
-for name in "${FLOWS[@]}"; do
-  [ -f "$FLOW_DIR/$name.yaml" ] || { echo "ERROR: no flow $FLOW_DIR/$name.yaml"; fail=1; continue; }
-  if flow_needs_backend "$name" && [ "$HAVE_SECRETS" != 1 ]; then
-    notice "android/$name skipped: LINKTRAIL_KEY and E2E_TOKEN are not set"; continue
-  fi
-  ok=0
-  for attempt in $(seq 1 "$RETRIES"); do
-    echo "==> android/$name (attempt $attempt/$RETRIES)"
-    if run_once "$name"; then ok=1; break; fi
-    echo "   attempt failed; resetting the Maestro driver"
-    reset_maestro; sleep 3
-  done
-  if [ "$ok" = 1 ]; then echo "OK: android/$name"; else echo "FAILED: android/$name"; fail=1; fi
-done
-
-[ "$fail" = 0 ] || { echo "==> Some Android e2e flows failed"; exit 1; }
-echo "==> All Android e2e flows passed"
+run_all "$@"

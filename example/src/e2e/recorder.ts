@@ -6,8 +6,9 @@ import type {
 
 /**
  * What the e2e flows read off the screen: every `onLink` delivery (so a flow
- * can assert it fired exactly once), the last attribution and the last
- * `trackEvent` result. Only rendered when the e2e config is enabled.
+ * can assert it fired exactly once), the last attribution, the last
+ * `trackEvent` / `trackInstall` result and the events-hook counts. Only
+ * rendered when the e2e config is enabled.
  */
 export interface E2EState {
   linkCount: number;
@@ -15,6 +16,10 @@ export interface E2EState {
   lastSource: LinkTrailLinkSource | null;
   attribution: string;
   event: string;
+  /** The last `trackInstall()` answer from the panel's button. */
+  install: string;
+  /** Events sent through the kickflip://e2e/events hook (the reward flows). */
+  events: { done: number; attributed: number; failed: number };
 }
 
 let state: E2EState = {
@@ -23,6 +28,8 @@ let state: E2EState = {
   lastSource: null,
   attribution: 'none',
   event: 'idle',
+  install: 'idle',
+  events: { done: 0, attributed: 0, failed: 0 },
 };
 const listeners = new Set<() => void>();
 
@@ -47,6 +54,20 @@ export const e2eRecorder = {
   },
   event(text: string): void {
     update({ event: text });
+  },
+  install(text: string): void {
+    update({ install: text });
+  },
+  /** One answer of the events hook: sent and attributed, sent, or failed. */
+  hookEvent(result: 'attributed' | 'sent' | 'failed'): void {
+    const e = state.events;
+    update({
+      events: {
+        done: e.done + (result === 'failed' ? 0 : 1),
+        attributed: e.attributed + (result === 'attributed' ? 1 : 0),
+        failed: e.failed + (result === 'failed' ? 1 : 0),
+      },
+    });
   },
 };
 

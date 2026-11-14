@@ -1,15 +1,17 @@
-# Deferred · consent DENY (real). Same staging as deferred_allow. Consent gates what is recorded,
-# not routing: the link still routes once, and afterwards e2e/android.sh checks the backend
-# recorded no install for this click.
+# Deferred · consent DENY (real). Rows: deferred_custom_deny, deferred_subdomain_deny, their
+# link-type rows, the reward rows (deferred_event_deny, deferred_revshare_deny) and the install step
+# of reengagement_type_deny__<type>. Same staging as deferred_allow. Consent gates what is recorded,
+# not routing: the link still routes once, and afterwards e2e/android.sh checks the backend recorded
+# no install for this click (and no earning).
 appId: io.linktrail.demo.store
 ---
 - launchApp
 - extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
 - tapOn: { id: "consent-deny" }
 - tapOn: { id: "consent-continue" }
-- extendedWaitUntil: { visible: { id: "e2e-link-path", text: "path: /products/aj1" }, timeout: 30000 }
+- extendedWaitUntil: { visible: { id: "e2e-link-path", text: "path: ${E2E_PATH_RE}" }, timeout: 30000 }
 - assertVisible: { id: "e2e-link-source", text: "source: deferred" }
-- assertVisible: { id: "e2e-link-custom-data", text: '.*"voucher":"SUMMER25".*' }
+- assertVisible: { id: "e2e-link-custom-data", text: "customData: ${E2E_CUSTOM_DATA_RE}" }
 - assertVisible: { id: "e2e-consent", text: "consent: denied" }
 - assertNotVisible: { id: "e2e-attribution", text: "attribution: attributed=true" }
 - extendedWaitUntil: { visible: "never-shown-e2e-pause", timeout: 5000, optional: true }

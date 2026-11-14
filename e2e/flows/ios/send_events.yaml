@@ -1,0 +1,12 @@
+# Helper of the reward rows (deferred_event_*, deferred_revshare_*), run right after the install
+# flow on the running app. e2e/verify.py plan-events builds $E2E_EVENTS_URL from the reward in the
+# install's backend response: kickflip://e2e/events?list=<JSON> (per_event: the reward's eventName
+# twice + one other event; rev_share: one revenue event in the reward's currency + one in another).
+# The example app's e2e hook sends each through LinkTrail.trackEvent and counts the answers:
+# allow: every one attributed; deny: the SDK drops them (attributed=false), and the backend check
+# afterwards finds no earning.
+appId: io.linktrail.kickflipdemo
+---
+- openLink: ${E2E_EVENTS_URL}
+- tapOn: { text: "Open", optional: true }
+- extendedWaitUntil: { visible: { id: "e2e-events", text: "events: done=${E2E_EVENTS_N} attributed=${E2E_EVENTS_ATTRIBUTED} failed=0" }, timeout: 45000 }

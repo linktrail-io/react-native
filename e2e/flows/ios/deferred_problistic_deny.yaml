@@ -1,0 +1,14 @@
+# Deferred · probabilistic · consent DENY (real). Rows: deferred_custom_deny_problistic,
+# deferred_subdomain_deny_problistic. Staged as deferred_problistic_allow. The e2e panel records a
+# denial and calls trackInstall(): the install goes out with consent false, answered and never
+# attributed.
+appId: io.linktrail.kickflipdemo
+---
+- launchApp
+- extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
+- tapOn: { id: "consent-skip" }
+- tapOn: { id: "e2e-deny-consent" }
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: denied" }, timeout: 10000 }
+- tapOn: { id: "e2e-track-install" }
+- extendedWaitUntil: { visible: { id: "e2e-install", text: "install: ok attributed=false" }, timeout: 30000 }
+- assertNotVisible: { id: "e2e-attribution", text: "attribution: attributed=true" }

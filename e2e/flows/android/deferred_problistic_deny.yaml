@@ -1,0 +1,13 @@
+# Deferred · probabilistic · consent DENY (real). Rows: deferred_custom_deny_problistic,
+# deferred_subdomain_deny_problistic. Staged as deferred_problistic_allow (a real click, no
+# referrer). The denied install goes out with consent false: answered, never attributed.
+appId: io.linktrail.demo.store
+---
+- launchApp
+- extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
+- tapOn: { id: "consent-deny" }
+- tapOn: { id: "consent-continue" }
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: denied" }, timeout: 10000 }
+- tapOn: { id: "e2e-track-install" }
+- extendedWaitUntil: { visible: { id: "e2e-install", text: "install: ok attributed=false" }, timeout: 30000 }
+- assertNotVisible: { id: "e2e-attribution", text: "attribution: attributed=true" }

@@ -6,6 +6,7 @@ import { e2eRecorder, stableJson } from './recorder';
 interface Props {
   consent: string;
   onGrantConsent: () => void;
+  onDenyConsent: () => void;
 }
 
 /** Event the trackEvent flow sends: a purchase with a value. */
@@ -15,7 +16,7 @@ export const E2E_EVENT = { name: 'e2e_purchase', value: 9.99, currency: 'USD' };
  * Diagnostics strip for the Maestro smoke flows (e2e builds only). Every
  * value has a testID so a flow can assert on it.
  */
-export function E2EPanel({ consent, onGrantConsent }: Props) {
+export function E2EPanel({ consent, onGrantConsent, onDenyConsent }: Props) {
   const s = useSyncExternalStore(e2eRecorder.subscribe, e2eRecorder.getState);
 
   const trackEvent = async () => {
@@ -32,6 +33,19 @@ export function E2EPanel({ consent, onGrantConsent }: Props) {
     }
   };
 
+  // The probabilistic flows: iOS tracks the install only on a paste (or this
+  // call), and on Android this joins or returns the auto-tracked install.
+  const trackInstall = async () => {
+    e2eRecorder.install('sending');
+    try {
+      const result = await LinkTrail.trackInstall();
+      e2eRecorder.install(`ok attributed=${result.attributed}`);
+    } catch (error) {
+      const { code, message } = error as { code?: string; message?: string };
+      e2eRecorder.install(`error ${code ?? message ?? String(error)}`);
+    }
+  };
+
   return (
     <View style={styles.panel} testID="e2e-panel">
       <Text style={styles.line} testID="e2e-consent">{`consent: ${consent}`}</Text>
@@ -43,12 +57,24 @@ export function E2EPanel({ consent, onGrantConsent }: Props) {
       </Text>
       <Text style={styles.line} testID="e2e-attribution">{`attribution: ${s.attribution}`}</Text>
       <Text style={styles.line} testID="e2e-event">{`event: ${s.event}`}</Text>
+      <Text style={styles.line} testID="e2e-install">{`install: ${s.install}`}</Text>
+      <Text style={styles.line} testID="e2e-events">
+        {`events: done=${s.events.done} attributed=${s.events.attributed} failed=${s.events.failed}`}
+      </Text>
       <View style={styles.buttons}>
         <Pressable style={styles.button} testID="e2e-grant-consent" onPress={onGrantConsent}>
           <Text style={styles.buttonText}>Grant consent</Text>
         </Pressable>
+        <Pressable style={styles.button} testID="e2e-deny-consent" onPress={onDenyConsent}>
+          <Text style={styles.buttonText}>Deny consent</Text>
+        </Pressable>
+      </View>
+      <View style={styles.buttons}>
         <Pressable style={styles.button} testID="e2e-track-event" onPress={trackEvent}>
           <Text style={styles.buttonText}>Track event</Text>
+        </Pressable>
+        <Pressable style={styles.button} testID="e2e-track-install" onPress={trackInstall}>
+          <Text style={styles.buttonText}>Track install</Text>
         </Pressable>
       </View>
     </View>
