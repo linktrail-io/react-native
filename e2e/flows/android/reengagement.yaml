@@ -1,16 +1,19 @@
-# Re-engagement (real): the app is installed and running; an https App Link for $LINK_URL opens it
-# (e2e/android.sh approves the host for the app first) and onLink fires once as a re-engagement.
+# Re-engagement (real). Rows: reengagement_allow, reengagement_deny (E2E_CONSENT allow | deny). The
+# app is installed fresh and running; $E2E_OPEN_URL opens it: the https App Link for $LINK_URL when
+# the manifest claims the host (e2e/android.sh approves it for the app first), else
+# kickflip://e2e/open?url=<link>. onLink fires once as a re-engagement; without consent the SDK
+# resolves the link route-only (nothing recorded).
 appId: io.linktrail.demo.store
 ---
 - launchApp
 - extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
-- tapOn: { id: "consent-allow" }
+- tapOn: { id: "consent-${E2E_CONSENT}" }
 - tapOn: { id: "consent-continue" }
-- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: granted" }, timeout: 10000 }
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: ${E2E_CONSENT_STATE}" }, timeout: 10000 }
 - assertVisible: { id: "e2e-link-count", text: "onLink: 0" }
-- openLink: ${LINK_URL}
+- openLink: ${E2E_OPEN_URL}
 - extendedWaitUntil: { visible: { id: "e2e-link-source", text: "source: reengagement" }, timeout: 30000 }
-- assertVisible: { id: "e2e-link-path", text: "path: /products/aj1" }
-- assertVisible: { id: "e2e-link-custom-data", text: '.*"voucher":"SUMMER25".*' }
+- assertVisible: { id: "e2e-link-path", text: "path: ${E2E_PATH_RE}" }
+- assertVisible: { id: "e2e-link-custom-data", text: "customData: ${E2E_CUSTOM_DATA_RE}" }
 - extendedWaitUntil: { visible: "never-shown-e2e-pause", timeout: 5000, optional: true }
 - assertVisible: { id: "e2e-link-count", text: "onLink: 1" }

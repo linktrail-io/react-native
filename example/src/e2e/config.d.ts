@@ -10,6 +10,8 @@ declare module 'kickflip-e2e-config' {
     enabled: boolean;
     /** Workspace SDK key; empty keeps the placeholder in attribution.ts. */
     apiKey: string;
+    /** Extra link domains for the run's environment (e.g. the dev hosts). */
+    linkDomains?: string[];
   };
   export default config;
 }
