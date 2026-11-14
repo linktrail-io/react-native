@@ -4,6 +4,7 @@ import e2eConfig from 'kickflip-e2e-config';
 import type { StoreAction } from './store';
 import { ConsentManager, type ConsentState } from './consent';
 import { e2eRecorder } from './e2e/recorder';
+import { handleE2EUrl } from './e2e/hooks';
 
 /**
  * Bridges the demo UI to the LinkTrail SDK: configures it, forwards real
@@ -92,7 +93,10 @@ export function startAttribution(
       // opens the app but never navigates. (Deferred install links skip this
       // check, which is why they work regardless.)
       await LinkTrail.configure(API_KEY, {
-        linkDomains: ['link.kynxlabs.com', 'kick.linktrail.io'],
+        // e2e builds add the hosts of the run's environment (e2e/e2e-env.json).
+        linkDomains: Array.from(
+          new Set(['link.kynxlabs.com', 'kick.linktrail.io', ...(e2eConfig.linkDomains ?? [])]),
+        ),
         requireConsent: true,
         // 'pasteButton' → iOS reads the deferred click token only when the user
         // taps <LinkTrailPasteButton/> (no "Allow Paste" alert). Ignored on Android.
@@ -162,19 +166,8 @@ function routeLocalScheme(
   dispatch: (action: StoreAction) => void,
 ): void {
   if (!url.startsWith('kickflip://')) return;
-  // e2e builds only: kickflip://e2e/open?url=<encoded LinkTrail link> hands the
-  // link to the SDK, which resolves it and delivers it through onLink as a
-  // re-engagement. Used on the iOS simulator, where an unsigned build has no
-  // Associated Domains, so https links open Safari instead of the app.
-  if (url.startsWith('kickflip://e2e/open?url=')) {
-    if (e2eConfig.enabled) {
-      const link = decodeURIComponent(url.slice('kickflip://e2e/open?url='.length));
-      LinkTrail.handleDeepLink(link).catch((error) =>
-        console.warn('LinkTrail e2e open failed:', error),
-      );
-    }
-    return;
-  }
+  // e2e builds only: the runners' kickflip://e2e/… hooks (see e2e/hooks.ts).
+  if (handleE2EUrl(url)) return;
   const [pathPart = '', queryPart] = url.slice('kickflip://'.length).split('?');
   const path = '/' + pathPart.replace(/^\/+|\/+$/g, '');
 

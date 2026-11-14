@@ -1,24 +1,25 @@
 #!/usr/bin/env bash
 #
-# iOS smoke e2e for the React Native wrapper: builds the example app (wrapper from source,
-# native LinkTrailSDK from CocoaPods trunk) in Release for the simulator, so the JS is bundled and
-# no Metro server is needed, then runs the Maestro flows in e2e/flows/ios on a booted simulator.
+# iOS e2e for the React Native wrapper: builds the example app (wrapper from source, native
+# LinkTrailSDK from CocoaPods trunk) in Release for the simulator, so the JS is bundled and no Metro
+# server is needed, then runs the rows of e2e/e2e-flows.json from e2e/flows/ios on a booted
+# simulator, against the links of e2e/e2e-env.json (see TESTING.md).
 #
-#   consent_prompt   offline: the consent gate shows, Skip stays undecided, a grant persists.
-#   deferred_allow   Safari stages a real click token on the clipboard → Allow + Paste → onLink once
-#                    (path + customData), then the backend recorded 1 attributed click_token install.
-#   deferred_deny    the same with Deny → the backend recorded nothing.
-#   reengagement     kickflip://e2e/open?url=<link> → handleDeepLink → onLink (source reengagement).
-#   track_event      trackEvent with a value → resolved by the backend.
+# Click rows open the link in Safari (_stage_click.yaml): the interstitial makes a real click and
+# stages lt_click on the clipboard, which the app's Paste control reads. The probabilistic rows
+# clear the clipboard after the click, so only the backend's IP match can attribute. Re-engagement
+# opens kickflip://e2e/open?url=<link> (an unsigned simulator build has no Associated Domains).
+# The wrapper ships the binary LinkTrailSDK, which has no backend override, so an environment with
+# override_backend (dev) skips the real rows with a notice.
 #
-# Usage: bash e2e/ios.sh [flow…]
-# Env:   LINKTRAIL_KEY, E2E_TOKEN (see e2e/lib.sh), RETRIES (3), DEVICE (udid; default: first
-#        booted simulator), SKIP_BUILD=1 to reuse the last build, BUILD_ONLY=1 to only build,
-#        SKIP_PODS=1 to skip pod install.
+# Usage: bash e2e/ios.sh [row|flow|kind…]
+# Env:   see e2e/lib.sh; DEVICE (udid; default: first booted simulator), SKIP_BUILD=1 to reuse
+#        the last build, BUILD_ONLY=1 to only build, SKIP_PODS=1 to skip pod install.
 set -euo pipefail
 export PATH="$HOME/.maestro/bin:$PATH:/opt/homebrew/bin:/usr/local/bin"   # CI non-login shell; appended so a pinned Ruby (setup-ruby) wins
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PLATFORM=ios
 # shellcheck source=e2e/lib.sh
 source "$ROOT/e2e/lib.sh"
 
@@ -28,7 +29,7 @@ DERIVED="$ROOT/example/ios/build-e2e"
 APP="$DERIVED/Build/Products/Release-iphonesimulator/KickFlip.app"
 export MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-120000}"
 
-trap remove_config EXIT
+trap cleanup_lib EXIT
 
 if [ "${SKIP_BUILD:-0}" != 1 ]; then
   if [ "${SKIP_PODS:-0}" != 1 ]; then
@@ -55,55 +56,61 @@ DEVICE="${DEVICE:-$(xcrun simctl list devices booted | grep -oiE '[0-9a-f]{8}-([
 [ -n "$DEVICE" ] || { echo "ERROR: no booted simulator (boot one, or set DEVICE)"; exit 1; }
 echo "-- device: $DEVICE"
 
-
-if [ "$#" -gt 0 ]; then
-  FLOWS=(); for f in "$@"; do FLOWS+=("$(basename "${f%.yaml}")"); done
-else
-  FLOWS=(consent_prompt deferred_allow deferred_deny reengagement track_event)
+if [ -n "$BASE_OVERRIDE" ]; then
+  REAL_SKIP="the iOS wrapper's binary SDK cannot point at the $LINKTRAIL_ENV backend (no LINKTRAIL_BASE in Release)"
 fi
 
-# capture_token: the 32-hex lt_click token the interstitial staged on the clipboard, or nothing.
-capture_token() {
-  { xcrun simctl pbpaste "$DEVICE" 2>/dev/null || true; } | grep -oE 'lt_click=[0-9a-fA-F]{32}' | head -1 | cut -d= -f2 || true
+# The XCUITest driver on iOS sims can die mid-run and stays dead; a retry reinstalls it.
+REINSTALL=""
+run_maestro() {
+  local label="$1"; shift
+  echo "   maestro: $label"
+  # shellcheck disable=SC2086  # $REINSTALL is empty or one flag
+  maestro $REINSTALL --device "$DEVICE" test "$@"
+  local rc=$?
+  REINSTALL=""
+  return $rc
 }
 
-# run_once <flow name> <driver flag>: fresh install, stage what the flow needs, run, check backend.
-run_once() {
-  local name="$1" reinstall="$2" token="" open_url
+reset_driver() {
+  pkill -f 'XCTestRunner|WebDriverAgent' >/dev/null 2>&1 || true
+  REINSTALL="--reinstall-driver"; sleep 10
+}
+
+install_fresh() {
   xcrun simctl uninstall "$DEVICE" "$APP_ID" >/dev/null 2>&1 || true
   xcrun simctl install "$DEVICE" "$APP" >/dev/null || return 1
-  printf '' | xcrun simctl pbcopy "$DEVICE"
-  if [[ "$name" == deferred_* ]]; then
-    # shellcheck disable=SC2086  # $reinstall is empty or one flag
-    maestro $reinstall --device "$DEVICE" test -e LINK_URL="$LINK_URL" "$FLOW_DIR/_stage_click.yaml" || return 1
-    token="$(capture_token)"
-    [ -n "$token" ] || { echo "   no lt_click token on the clipboard after the Safari step" >&2; return 1; }
-    echo "   click ${token:0:8}… staged"
-    reinstall=""
-  fi
-  open_url="kickflip://e2e/open?url=$(python3 -I -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$LINK_URL")"
-  # shellcheck disable=SC2086
-  maestro $reinstall --device "$DEVICE" test -e LINK_URL="$LINK_URL" -e E2E_OPEN_URL="$open_url" "$FLOW_DIR/$name.yaml" || return 1
-  verify_click "$name" "$token"
+  # Probabilistic rows (and rows without a click) start from an empty clipboard.
+  [ -n "$TOKEN" ] || printf '' | xcrun simctl pbcopy "$DEVICE"
 }
 
-fail=0
-for name in "${FLOWS[@]}"; do
-  [ -f "$FLOW_DIR/$name.yaml" ] || { echo "ERROR: no flow $FLOW_DIR/$name.yaml"; fail=1; continue; }
-  if flow_needs_backend "$name" && [ "$HAVE_SECRETS" != 1 ]; then
-    notice "ios/$name skipped: LINKTRAIL_KEY and E2E_TOKEN are not set"; continue
+# stage_click <url> <token|no-token>: Safari opens <url>; the interstitial makes a real click and
+# stages lt_click=<token> on the clipboard. token: keep it there for the Paste control (TOKEN set).
+stage_click() {
+  local token
+  printf '' | xcrun simctl pbcopy "$DEVICE"
+  run_maestro "stage-click" -e LINK_URL="$1" "$FLOW_DIR/_stage_click.yaml" \
+    || { FAIL_STEP="maestro: _stage_click"; FAIL_ERROR="Safari step failed"; return 1; }
+  token="$({ xcrun simctl pbpaste "$DEVICE" 2>/dev/null || true; } | grep -oE 'lt_click=[0-9a-fA-F]{32}' | head -1 | cut -d= -f2 || true)"
+  if [ "$2" != token ]; then
+    # Probabilistic: the click is the page load; whatever was staged is cleared, never pasted.
+    printf '' | xcrun simctl pbcopy "$DEVICE"
+    echo "   click made${token:+ (${token:0:8}…, cleared)}"
+    [ -z "$token" ] || wait_click "$token"
+    return
   fi
-  ok=0; reinstall=""
-  for attempt in $(seq 1 "$RETRIES"); do
-    echo "==> ios/$name (attempt $attempt/$RETRIES)"
-    if run_once "$name" "$reinstall"; then ok=1; break; fi
-    # The XCUITest driver on iOS sims can die mid-run and stays dead; restart it before a retry.
-    echo "   attempt failed; restarting the Maestro driver"
-    pkill -f 'XCTestRunner|WebDriverAgent' >/dev/null 2>&1 || true
-    reinstall="--reinstall-driver"; sleep 10
-  done
-  if [ "$ok" = 1 ]; then echo "OK: ios/$name"; else echo "FAILED: ios/$name"; fail=1; fi
-done
+  if [ -z "$token" ]; then
+    FAIL_STEP="real click"; FAIL_ERROR="no lt_click token on the clipboard after the Safari step"
+    [ "$(curl -sS -o /dev/null -w '%{http_code}' "$1" 2>/dev/null || true)" = 404 ] && FAIL_ERROR="$LINKTRAIL_ENV link ${1##*/} not created"
+    return 1
+  fi
+  echo "   click ${token:0:8}… staged"
+  wait_click "$token" || return 1
+  TOKEN="$token"
+}
 
-[ "$fail" = 0 ] || { echo "==> Some iOS e2e flows failed"; exit 1; }
-echo "==> All iOS e2e flows passed"
+open_url_for() {
+  printf 'kickflip://e2e/open?url=%s' "$(python3 -I -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1")"
+}
+
+run_all "$@"

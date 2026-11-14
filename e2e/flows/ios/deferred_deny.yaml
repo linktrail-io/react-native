@@ -1,6 +1,8 @@
-# Deferred · consent DENY (real). Same staging as deferred_allow; the user denies and taps Paste.
+# Deferred · consent DENY (real). Rows: deferred_custom_deny, deferred_subdomain_deny, their
+# link-type rows, the reward rows (deferred_event_deny, deferred_revshare_deny) and the install step
+# of reengagement_type_deny__<type>. Same staging as deferred_allow; the user denies and taps Paste.
 # Nothing may be attributed and onLink may fire at most once. Afterwards e2e/ios.sh checks the
-# backend recorded no install for the staged token.
+# backend recorded no install (and no earning) for the staged token.
 appId: io.linktrail.kickflipdemo
 ---
 - launchApp

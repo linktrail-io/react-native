@@ -146,6 +146,7 @@ export default function App() {
         <E2EPanel
           consent={consent === 'loading' ? 'loading' : consent}
           onGrantConsent={grantConsent}
+          onDenyConsent={denyConsent}
         />
       ) : null}
 

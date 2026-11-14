@@ -1,16 +1,20 @@
-# Deferred · consent ALLOW (real). e2e/ios.sh installs the app fresh and runs _stage_click.yaml
-# first (Safari stages the click token on the clipboard). Here the user allows and taps Paste;
-# onLink must fire once with the linked path + customData. Afterwards the script checks the backend
-# recorded 1 attributed click_token install for that token.
+# Deferred · consent ALLOW (real). Rows: deferred_custom_allow, deferred_subdomain_allow, their
+# link-type rows (deferred_custom_allow__<type>), the reward rows (deferred_event_allow,
+# deferred_revshare_allow) and the install step of reengagement_type_allow__<type>.
+# e2e/ios.sh runs _stage_click.yaml first (Safari stages the click token on the clipboard) and
+# installs the app fresh. Here the user allows and taps Paste; onLink must fire once with the linked
+# path + customData. Afterwards the script checks the backend recorded 1 attributed click_token
+# install (and the reward, see e2e/verify.py). E2E_PATH_RE / E2E_CUSTOM_DATA_RE come from
+# e2e/targets.py (a link-type row also matches linkType + source in customData).
 appId: io.linktrail.kickflipdemo
 ---
 - launchApp
 - extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
 - tapOn: { id: "consent-allow" }
 - tapOn: { text: "^Paste$" }
-- extendedWaitUntil: { visible: { id: "e2e-link-path", text: "path: /products/aj1" }, timeout: 30000 }
+- extendedWaitUntil: { visible: { id: "e2e-link-path", text: "path: ${E2E_PATH_RE}" }, timeout: 30000 }
 - assertVisible: { id: "e2e-link-source", text: "source: deferred" }
-- assertVisible: { id: "e2e-link-custom-data", text: '.*"voucher":"SUMMER25".*' }
+- assertVisible: { id: "e2e-link-custom-data", text: "customData: ${E2E_CUSTOM_DATA_RE}" }
 - assertVisible: { id: "e2e-consent", text: "consent: granted" }
 - extendedWaitUntil: { visible: "never-shown-e2e-pause", timeout: 5000, optional: true }
 - assertVisible: { id: "e2e-link-count", text: "onLink: 1" }

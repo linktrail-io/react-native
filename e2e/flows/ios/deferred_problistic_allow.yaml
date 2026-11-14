@@ -1,0 +1,17 @@
+# Deferred · probabilistic · consent ALLOW (real). Rows: deferred_custom_allow_problistic,
+# deferred_subdomain_allow_problistic. e2e/ios.sh opens $LINK_URL in Safari (_stage_click.yaml: the
+# click) and clears the clipboard, so the install carries no click token: only the backend's IP +
+# platform match can attribute it. The app uses clickTokenSource 'pasteButton' with
+# autoTrackInstall off, so the e2e panel grants consent and calls trackInstall() (no paste). The
+# match may or may not happen: the flow asserts the install was answered (attributed or organic).
+# The wrapper exposes no SDK device id, so the native suites' device lookup is not checkable here.
+appId: io.linktrail.kickflipdemo
+---
+- launchApp
+- extendedWaitUntil: { visible: "Allow tracking?", timeout: 30000 }
+- tapOn: { id: "consent-skip" }
+- tapOn: { id: "e2e-grant-consent" }
+- extendedWaitUntil: { visible: { id: "e2e-consent", text: "consent: granted" }, timeout: 10000 }
+- tapOn: { id: "e2e-track-install" }
+- extendedWaitUntil: { visible: { id: "e2e-install", text: "install: ok attributed=(true|false)" }, timeout: 30000 }
+- assertNotVisible: { id: "e2e-link-count", text: "onLink: [2-9].*" }
